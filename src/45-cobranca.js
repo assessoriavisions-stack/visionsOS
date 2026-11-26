@@ -158,7 +158,7 @@ function CobrancasPage({ nav }) {
   const issues = reconcile(db, inv).filter(x => !hide.includes(x.type + ':' + (x.i ? x.i.id : x.a.id)));
   const ready = asaasReady(S);
   const by = groupBy(issues, x => x.type);
-  const order = ['problema', 'pago_aqui_aberto_la', 'excluida', 'sem_documento', 'nao_emitida', 'atrasada', 'valor', 'orfa'];
+  const order = ['problema', 'pago_aqui_aberto_la', 'excluida', 'sem_documento', 'nao_emitida', 'atrasada', 'inadimplente', 'valor', 'orfa'];
   const toEmit = (by.nao_emitida || []).map(x => x.i);
   const sugg = useMemo(() => suggestLinks(db, inv), [inv, db.asaas, db.clients]);
   const [bulk, setBulk] = useState(null);
@@ -184,7 +184,7 @@ function CobrancasPage({ nav }) {
     if (x.type === 'sem_documento') return html`<${Btn} sz="xs" on=${() => nav.go('clientes')}>Cadastrar CPF/CNPJ</${Btn}>`;
     if (x.type === 'valor') { const c = db.contracts[i.contractId]; return c && i.kind === 'mensal' && (!c.currency || c.currency === 'BRL') ? html`<${Btn} sz="xs" on=${() => { store.put('contracts', Object.assign({}, c, { value: Number(i.asaas.value) })); toast('Contrato atualizado para ' + money2(i.asaas.value) + '/mês.'); }}>Atualizar contrato para ${money2(i.asaas.value)}</${Btn}>` : null; }
     if (x.type === 'pago_aqui_aberto_la' && ready) return html`<${Btn} sz="xs" v="pri" on=${() => act(() => asaasCall('receiveInCash', { id: i.asaas.id, paymentDate: i.paidAt || today(), value: i.paidAmount || i.amount }).then(saveAsaasSnap), 'Baixa registrada no Asaas — o cliente não será mais cobrado.')}>Dar baixa no Asaas</${Btn}>`;
-    if (x.type === 'atrasada' && i.billing !== 'asaas') return html`<${InvActions} i=${i}/>`;
+    if ((x.type === 'atrasada' || x.type === 'inadimplente') && i.billing !== 'asaas') return html`<${InvActions} i=${i}/>`;
     return null;
   };
   return html`<div>
@@ -195,7 +195,7 @@ function CobrancasPage({ nav }) {
     ${!ready && html`<div class="callout info mb16"><b class="t">Asaas ainda não conectado</b>A conciliação abaixo já funciona com os dados manuais. Para emitir cobranças e receber a baixa automática quando o cliente paga, conecte em <a href="#config" onClick=${e => { e.preventDefault(); nav.go('config'); LS.set('vos7_cfgtab', 'asaas'); }}>Configurações → Asaas</a>.</div>`}
     <div class="grid g4 mb16">
       <${Kpi} l="Alertas de cobrança" v=${issues.filter(x => ISSUE_TYPES[x.type].t !== 'info').length} tone=${issues.some(x => ISSUE_TYPES[x.type].t === 'bad') ? 'bad' : null} icon="alert"/>
-      <${Kpi} l="Atrasado (total)" v=${money(sum((by.atrasada || []).map(x => x.i), i => i.amount))} s=${(by.atrasada || []).length + ' cobranças'}/>
+      <${Kpi} l="Atrasado neste mês" v=${money(sum((by.atrasada || []).map(x => x.i), i => i.amount))} s=${(by.atrasada || []).length + ' cobranças · inadimplência à parte: ' + money(sum((by.inadimplente || []).map(x => x.i), i => i.amount))}/>
       <${Kpi} l=${'Recebido via Asaas em ' + monthShort(ym)} v=${money(sum(viaAsaas, i => i.paidAmount))} s=${S.asaasLastSync ? 'sincronizado ' + new Date(S.asaasLastSync).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'baixa automática pelo webhook'} tone="good"/>
       <${Kpi} l="Exterior a receber (30 dias)" v=${Object.entries(extByCur).map(([cur, l]) => moneyCur(sum(l, i => i.amountOrig ?? i.amount), cur)).join(' + ') || '—'} s=${ext.length + ' cobranças · ≈ ' + money(sum(ext, i => i.amount))}/>
     </div>
@@ -210,7 +210,7 @@ function CobrancasPage({ nav }) {
         <${Btn} sz="xs" v="pri" on=${() => { linkInvoice(x.i, x.a); toast('Vinculada.'); }}>Vincular</${Btn}></div>`)}
     </div>`}
     ${order.filter(t => by[t] && by[t].some(x => !(x.type === 'orfa' && suggIds.has(x.a.id)))).map(t => html`<div class="card flush mb16" key=${t}>
-      <div class=${'lgroup ' + (ISSUE_TYPES[t].t === 'bad' ? 'bad' : '')}><span>${ISSUE_TYPES[t].l} (${by[t].length})${t === 'atrasada' && html` <button class="btn xs" style=${{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }} onClick=${() => setBulk(by[t].map(x => x.i))}>Já foram pagas? Dar baixa em várias</button>`}</span><span style=${{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>${ISSUE_TYPES[t].h}</span></div>
+      <div class=${'lgroup ' + (ISSUE_TYPES[t].t === 'bad' ? 'bad' : '')}><span>${ISSUE_TYPES[t].l} (${by[t].length})${(t === 'atrasada' || t === 'inadimplente') && html` <button class="btn xs" style=${{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }} onClick=${() => setBulk(by[t].map(x => x.i))}>Já foram pagas? Dar baixa em várias</button>`}</span><span style=${{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>${ISSUE_TYPES[t].h}</span></div>
       ${by[t].filter(x => !(x.type === 'orfa' && suggIds.has(x.a.id))).slice(0, 50).map(x => html`<div class="lrow" key=${t + (x.i ? x.i.id : x.a.id)}>
         ${x.i ? html`<div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${pad(parseD(x.i.due).getDate())}</div><div class="xs faint">${MSHORT[parseD(x.i.due).getMonth()]}</div></div>
           <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => nav.contract(x.i.contractId)}><div class="main-t ellipsis">${x.i.clientName}</div><div class="xs faint row" style=${{ gap: 6, flexWrap: 'wrap' }}><${BillingBadge} i=${x.i}/><span>${x.i.label}${x.extra ? ' · ' + x.extra : ''}</span></div></div>

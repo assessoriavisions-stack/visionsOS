@@ -13,7 +13,8 @@ function HomePage({ nav }) {
   const goalDay = sum(Object.values(S.dailyGoals || {}));
   const meetings = vals(db.deals).filter(d => d.stage === 'agendada' && d.meetingAt && d.meetingAt.slice(0, 10) <= addDays(today(), 1) && d.meetingAt.slice(0, 10) >= today()).sort((x, y) => x.meetingAt.localeCompare(y.meetingAt));
   const inv = useMemo(() => allInvoices(db, addMonths(ym, 1)), [db.contracts, db.payments]);
-  const late = inv.filter(i => i.status === 'atrasado').sort((a, b2) => a.due.localeCompare(b2.due));
+  const late = inv.filter(i => i.status === 'atrasado' && !isInadimplente(i)).sort((a, b2) => a.due.localeCompare(b2.due));
+  const inadH = inv.filter(isInadimplente);
   const soon = inv.filter(i => i.status === 'pendente' && i.due <= addDays(today(), 7)).sort((a, b2) => a.due.localeCompare(b2.due));
   const f = monthFinance(db, ym, inv);
   const act = goalActuals(db, ym); const g = db.goals[ym] || {}; const pace = paceOf(ym);
@@ -56,6 +57,7 @@ function HomePage({ nav }) {
         <div class="card flush"><div class=${'lgroup' + (late.length ? ' bad' : '')}><span>${late.length ? 'Cobranças atrasadas' : 'A receber (7 dias)'}</span><span><a href="#recebiveis" onClick=${e => { e.preventDefault(); nav.go('recebiveis'); }}>ver →</a></span></div>
           ${late.concat(soon).slice(0, 6).map(i => html`<${InvRow} key=${i.id} i=${i}/>`)}
           ${!late.length && !soon.length && html`<${Empty} t="Nada vencendo" s="Nenhuma cobrança nos próximos 7 dias."/>`}
+          ${inadH.length > 0 && html`<div class="small muted" style=${{ padding: '10px 14px', borderTop: '1px solid var(--border)' }}>Inadimplência à parte: <b>${money(sum(inadH, i => i.amount))}</b> (${inadH.length}) · <a href="#recebiveis" onClick=${e => { e.preventDefault(); LS.set('vos7_rec_tab', 'inad'); nav.go('recebiveis'); }}>ver</a></div>`}
         </div>
       </div>
     </div>
@@ -337,7 +339,7 @@ function Shell({ onLogout }) {
   const fu = followupBuckets(db, CURRENT_USER.id || null);
   const fuN = fu.atrasado.length + fu.hoje.length;
   const invNow = useMemo(() => allInvoices(db, addMonths(ymNow(), 1)), [db.contracts, db.payments, db.asaas, db.settings]);
-  const lateN = invNow.filter(i => i.status === 'atrasado').length;
+  const lateN = invNow.filter(i => i.status === 'atrasado' && !isInadimplente(i)).length;
   const issN = useMemo(() => reconcile(db, invNow).filter(x => x.type !== 'atrasada' && ISSUE_TYPES[x.type].t !== 'info').length, [invNow]);
   const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null };
   const cur = PAGES.find(p => p.id === page) || PAGES[0];

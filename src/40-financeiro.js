@@ -14,7 +14,7 @@ const condText = c => c.kind === 'espelho' ? 'Espelho do Asaas: todas as cobran�
 function FinancePage({ nav }) {
   const db = useDB(); const S = db.S;
   const [ym, setYm] = useState(ymNow());
-  const inv = useMemo(() => allInvoices(db, addMonths(ymNow(), 7)), [db.contracts, db.payments]);
+  const inv = useMemo(() => allInvoices(db, addMonths(ymNow(), 7)), [db.contracts, db.payments, db.asaas, db.settings]);
   const f = monthFinance(db, ym, inv);
   const months = Array.from({ length: 9 }, (_, i) => addMonths(ymNow(), i - 5));
   const fins = months.map(m => monthFinance(db, m, inv));
@@ -32,25 +32,14 @@ function FinancePage({ nav }) {
       <${MonthNav} v=${ym} on=${setYm}/>
       <${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}>
     </${PageH}>
-    <div class="grid g5 mb16">
-      <div class="kpi accent"><div class="l">Receita (competência)</div><div class="v">${money(f.receita)}</div><div class="s">${money(f.mensalidades)} recorrente · ${money(f.projetos)} projetos/setup</div></div>
-      <${Kpi} l="Caixa recebido" v=${money(f.caixa)} s=${f.recebidos.length + ' recebimentos no mês'} tone="good"/>
-      <${Kpi} l="A receber no mês" v=${money(f.aReceber)} s=${'de ' + money(f.previsto) + ' previstos'}/>
-      <${Kpi} l="Despesas" v=${money(f.despesas + f.imposto)} s=${f.imposto ? 'inclui ' + money(f.imposto) + ' de imposto estimado' : f.custos.length + ' lançamentos'}/>
-      <${Kpi} l="Resultado de caixa" v=${money(f.resultadoCaixa)} tone=${f.resultadoCaixa >= 0 ? 'good' : 'bad'} s=${'competência: ' + money(f.resultadoCompetencia)}/>
-    </div>
-    ${Math.abs(gap) > 1 && html`<div class=${'callout mb16 ' + (gap > 0 ? 'info' : 'good')}>
-      <b class="t">${gap > 0 ? 'Você vendeu/faturou mais do que recebeu neste mês' : 'Você recebeu mais do que faturou neste mês'}</b>
-      Diferença de <b>${money(Math.abs(gap))}</b> entre receita (${money(f.receita)}) e caixa (${money(f.caixa)}).
-      ${gap > 0 ? ' Normal quando há projetos parcelados (ex: Consultoria 360 em 6x) ou mensalidades ainda não pagas — esse valor entra no caixa nos próximos meses.' : ' Acontece quando entram parcelas de vendas feitas em meses anteriores.'}
-    </div>`}
+    <${MonthSummary} db=${db} ym=${ym} inv=${inv} f=${f} nav=${nav}/>
     <div class="grid g-side mb16">
       <div class="card"><div class="card-h"><h3>Receita × Caixa</h3><span class="sub">meses futuros = previsto pelas parcelas e mensalidades</span></div>
         <${BarChart} labels=${months.map(monthShort)} highlight=${months.indexOf(ym)} fmt=${v => (Math.abs(v) >= 1000 ? 'R$' + num(v / 1000, 0) + 'k' : money(v))}
           series=${[{ name: 'Receita (competência)', data: fins.map(x => x.receita), color: 'var(--s1)' }, { name: 'Caixa (recebido / previsto)', data: fins.map(cashOrPrev), color: 'var(--s3)' }, { name: 'Despesas', data: fins.map(x => x.despesas), color: 'var(--s2)' }]}/>
       </div>
-      <div class="card"><div class="card-h"><h3>MRR — ${monthLabel(ym)}</h3></div>
-        <div class="calc-out"><div class="big">${money(f.mrr)}</div><div class="small muted">${f.recurring.length} contratos recorrentes ativos</div></div>
+      <div class="card"><div class="card-h"><h3>MRR total (ativo + aviso) — ${monthLabel(ym)}</h3></div>
+        <div class="calc-out"><div class="big">${money(f.mrr)}</div><div class="small muted">${f.recurring.length} contratos recorrentes no mês, incluindo quem está em aviso</div></div>
         <div class="hr"/>
         <div class="row between small mb8"><span class="muted">+ Novo MRR (${f.novos.length})</span><b class="delta-up num">${money(f.novoMrr)}</b></div>
         <div class="row between small mb8"><span class="muted">− Churn / avisos (${f.churned.length})</span><b class="delta-down num">${money(f.churnMrr)}</b></div>
@@ -65,9 +54,9 @@ function FinancePage({ nav }) {
           <td class="r num b" style=${{ color: r.saldo >= 0 ? 'var(--good)' : 'var(--bad)' }}>${money(r.saldo)}</td><td class="r num">${money(r.acc)}</td></tr>`)}</tbody></table>
         <div class="small faint" style=${{ padding: '10px 14px' }}>Considera contratos ativos, avisos até o fim e parcelas pendentes. Não inclui vendas futuras.</div>
       </div>
-      <div class="card flush"><div class="lgroup bad"><span>Inadimplência</span><span>${money(f.atrasadoTotal)}</span></div>
-        ${f.atrasadas.length ? f.atrasadas.sort((a, b) => a.due.localeCompare(b.due)).slice(0, 8).map(i => html`<${InvRow} key=${i.id} i=${i}/>`) : html`<${Empty} t="Nenhuma cobrança atrasada 👏" s=""/>`}
-        ${f.atrasadas.length > 8 && html`<div style=${{ padding: 10 }}><${Btn} sz="sm" on=${() => nav.go('recebiveis')}>Ver todas</${Btn}></div>`}
+      <div class="card flush"><div class="lgroup bad"><span>Inadimplência (meses anteriores)</span><span>${money(sum(f.atrasadas.filter(isInadimplente), i => i.amount))}</span></div>
+        ${f.atrasadas.filter(isInadimplente).length ? f.atrasadas.filter(isInadimplente).sort((a, b) => a.due.localeCompare(b.due)).slice(0, 8).map(i => html`<${InvRow} key=${i.id} i=${i}/>`) : html`<${Empty} t="Nenhuma inadimplência 👏" s=""/>`}
+        ${f.atrasadas.filter(isInadimplente).length > 8 && html`<div style=${{ padding: 10 }}><${Btn} sz="sm" on=${() => { LS.set('vos7_rec_tab', 'inad'); nav.go('recebiveis'); }}>Ver todas</${Btn}></div>`}
       </div>
     </div>
   </div>`;
@@ -115,20 +104,22 @@ function PayModal({ i, onClose }) {
 }
 function ReceivablesPage({ nav }) {
   const db = useDB();
-  const [tab, setTab] = useState('mes'); const [q, setQ] = useState(''); const [ym, setYm] = useState(ymNow());
+  const [tab, setTab] = useState(() => { const t0 = LS.get('vos7_rec_tab', 'mes'); LS.set('vos7_rec_tab', 'mes'); return t0; }); const [q, setQ] = useState(''); const [ym, setYm] = useState(ymNow());
   const [bulk, setBulk] = useState(null);
-  const inv = useMemo(() => allInvoices(db, addMonths(ymNow(), 12)), [db.contracts, db.payments]);
+  const inv = useMemo(() => allInvoices(db, addMonths(ymNow(), 12)), [db.contracts, db.payments, db.asaas, db.settings]);
   const t = today(), in30 = addDays(t, 30);
   let list = inv.filter(i => {
     if (q && !(i.clientName || '').toLowerCase().includes(q.toLowerCase())) return false;
-    if (tab === 'atrasado') return i.status === 'atrasado';
-    if (tab === 'mes') return i.ym === ym && i.status !== 'cancelado';
+    if (tab === 'atrasado') return i.status === 'atrasado' && !isInadimplente(i);
+    if (tab === 'inad') return isInadimplente(i);
+    if (tab === 'mes') return i.ym === ym && i.status !== 'cancelado' && !isInadimplente(i);
     if (tab === 'prox') return i.status !== 'pago' && i.status !== 'cancelado' && i.due >= t && i.due <= in30;
     if (tab === 'recebido') return i.status === 'pago' && ymOf(i.paidAt) === ym;
     return true;
   }).sort((a, b) => (tab === 'recebido' ? (a.paidAt || '').localeCompare(b.paidAt || '') : a.due.localeCompare(b.due)));
-  const atr = inv.filter(i => i.status === 'atrasado');
-  const mes = inv.filter(i => i.ym === ym && i.status !== 'cancelado');
+  const atr = inv.filter(i => i.status === 'atrasado' && !isInadimplente(i));
+  const inad = inv.filter(isInadimplente);
+  const mes = inv.filter(i => i.ym === ym && i.status !== 'cancelado' && !isInadimplente(i));
   const recMes = inv.filter(i => i.status === 'pago' && ymOf(i.paidAt) === ym);
   const tot = sum(list, i => (i.status === 'pago' ? i.paidAmount : i.amount));
   return html`<div>
@@ -136,18 +127,20 @@ function ReceivablesPage({ nav }) {
       ${(tab === 'mes' || tab === 'recebido') && html`<${MonthNav} v=${ym} on=${setYm}/>`}
       ${list.some(i => i.status === 'pendente' || i.status === 'atrasado') && html`<${Btn} icon="check" on=${() => setBulk(list.filter(i => i.status === 'pendente' || i.status === 'atrasado'))}>Dar baixa em várias</${Btn}>`}
     </${PageH}>
-    <div class="grid g4 mb16">
-      <${Kpi} l="Atrasado" v=${money(sum(atr, i => i.amount))} s=${atr.length + ' cobranças'} tone=${atr.length ? 'bad' : null}/>
+    <div class="grid g5 mb16">
+      <${Kpi} l="Atrasado neste mês" v=${money(sum(atr, i => i.amount))} s=${atr.length ? atr.length + ' cobranças para cobrar já' : 'nenhuma'} tone=${atr.length ? 'bad' : null}/>
+      <div class="kpi" style=${{ cursor: 'pointer', borderStyle: 'dashed' }} onClick=${() => setTab('inad')}><div class="l">Inadimplência (à parte)</div><div class="v" style=${{ color: 'var(--text-2)' }}>${money(sum(inad, i => i.amount))}</div><div class="s">${inad.length} cobranças de meses anteriores · não entram nos totais</div></div>
       <${Kpi} l=${'Previsto em ' + monthShort(ym)} v=${money(sum(mes, i => i.amount))} s=${mes.length + ' cobranças'}/>
       <${Kpi} l=${'Recebido em ' + monthShort(ym)} v=${money(sum(recMes, i => i.paidAmount))} tone="good"/>
       <${Kpi} l="Falta receber no mês" v=${money(sum(mes.filter(i => i.status !== 'pago'), i => i.amount))}/>
     </div>
     <div class="row wrap mb12">
-      <${Seg} v=${tab} on=${setTab} opts=${[{ v: 'atrasado', l: 'Atrasados (' + atr.length + ')' }, { v: 'mes', l: 'Vencem no mês' }, { v: 'prox', l: 'Próximos 30 dias' }, { v: 'recebido', l: 'Recebidos no mês' }, { v: 'todos', l: 'Todos' }]}/>
+      <${Seg} v=${tab} on=${setTab} opts=${[{ v: 'mes', l: 'Vencem no mês' }, { v: 'atrasado', l: 'Atrasados do mês (' + atr.length + ')' }, { v: 'prox', l: 'Próximos 30 dias' }, { v: 'recebido', l: 'Recebidos no mês' }, { v: 'inad', l: 'Inadimplentes (' + inad.length + ')' }, { v: 'todos', l: 'Todos' }]}/>
       <div style=${{ flex: '1 1 200px', maxWidth: 300, marginLeft: 'auto' }}><${Input} v=${q} on=${setQ} ph="Buscar cliente…"/></div>
     </div>
     <div class="card flush">
-      <div class="lgroup"><span>${list.length} cobranças</span><span class="num">${money(tot)}</span></div>
+      <div class="lgroup"><span>${list.length} cobranças${tab === 'inad' ? ' · vencidas antes de ' + monthLabel(ymNow()) : ''}</span><span class="num">${money(tot)}</span></div>
+      ${tab === 'inad' && html`<div class="small muted" style=${{ padding: '8px 14px' }}>Clientes com cobranças em atraso desde meses anteriores. Ficam fora dos totais de "a receber" para não inflar o mês. Use o sininho para mandar lembrete ou dê baixa quando pagarem.</div>`}
       ${list.slice(0, 300).map(i => html`<${InvRow} key=${i.id} i=${i}/>`)}
       ${bulk && html`<${BulkPayModal} list=${bulk} onClose=${() => setBulk(null)}/>`}
       ${!list.length && html`<${Empty} t="Nada por aqui" s="Cadastre vendas em Contratos para gerar as cobranças automaticamente."><${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}></${Empty}>`}
@@ -404,4 +397,74 @@ function ClientForm({ c, onClose }) {
   return html`<${Modal} title="Cliente" onClose=${onClose} footer=${html`<${Btn} on=${onClose}>Cancelar</${Btn}><${Btn} v="pri" on=${save}>Salvar</${Btn}>`}>
     <div class="form c2"><${Input} cls="span3" label="Nome / empresa" v=${f.name} on=${F('name')}/><${Input} label="Telefone" v=${f.phone} on=${F('phone')}/><${Input} label="E-mail" v=${f.email} on=${F('email')}/>
       <${Input} label="CNPJ / CPF" v=${f.document} on=${F('document')}/><${Input} label="Responsável" v=${f.contact} on=${F('contact')}/><${Textarea} cls="span3" label="Observações" v=${f.notes} on=${F('notes')}/></div></${Modal}>`;
+}
+
+/* ---------- resumo do mês em linguagem clara ---------- */
+const isInadimplente = i => i.status === 'atrasado' && i.due < ymNow() + '-01';
+function MonthSummary({ db, ym, inv, f, nav }) {
+  const S = db.S;
+  const [open, setOpen] = useState(LS.get('vos7_fin_open', { ativos: true, aviso: true, outros: true, desp: true }));
+  const tog = k => { const n = { ...open, [k]: !open[k] }; setOpen(n); LS.set('vos7_fin_open', n); };
+  const monthEnd = ym + '-' + pad(daysInMonth(ym));
+  const rec = vals(db.contracts).filter(c => contractActiveIn(c, ym));
+  const emAviso = c => !!c.endDate;
+  const ativos = rec.filter(c => !emAviso(c)).sort((a, b) => brlValue(b) - brlValue(a));
+  const aviso = rec.filter(emAviso).sort((a, b) => (a.endDate || '').localeCompare(b.endDate || ''));
+  const mrrAtivo = sum(ativos, brlValue), mrrAviso = sum(aviso, brlValue);
+  const doMes = inv.filter(i => i.ym === ym && i.status !== 'cancelado');
+  const byContract = groupBy(doMes, i => i.contractId);
+  const recIds = new Set(rec.map(c => c.id));
+  const outros = doMes.filter(i => !recIds.has(i.contractId) || i.kind !== 'mensal').sort((a, b) => a.due.localeCompare(b.due));
+  const desp = f.custos.slice().sort((a, b) => b.amount - a.amount);
+  const res = f.caixa - f.despesas - f.imposto;
+  const pend = doMes.filter(i => i.status !== 'pago');
+  const inad = inv.filter(isInadimplente);
+  const statusOf = c => { const l = (byContract[c.id] || []).filter(i => i.kind === 'mensal'); if (!l.length) return null; const pg = l.every(i => i.status === 'pago'); const at = l.some(i => i.status === 'atrasado'); return pg ? ['good', 'pago'] : at ? ['bad', 'atrasado'] : ['', 'a receber']; };
+  const Box = ({ t, v, s, tone, icon }) => html`<div class="kpi"><div class="l">${icon && html`<${Icon} n=${icon} s=${14}/>`}${t}</div><div class="v" style=${tone ? { color: 'var(--' + tone + ')' } : null}>${v}</div><div class="s" style=${{ color: 'var(--text-2)' }}>${s}</div></div>`;
+  const Group = ({ k, title, total, tone, children, hint }) => html`<div class="mb12">
+    <button class="row between" style=${{ width: '100%', border: 0, background: 'none', padding: '6px 0', cursor: 'pointer' }} onClick=${() => tog(k)}>
+      <span class="xs b" style=${{ letterSpacing: '.08em', textTransform: 'uppercase', color: tone ? 'var(--' + tone + ')' : 'var(--text-2)' }}>${open[k] ? '▾' : '▸'} ${title}</span><b class="num small">${total}</b></button>
+    ${hint && open[k] && html`<div class="xs faint mb8">${hint}</div>`}
+    ${open[k] && children}</div>`;
+  const Row = ({ name, sub, val, tag, onClick, border }) => html`<div class="row" style=${{ padding: '8px 12px', borderLeft: '3px solid ' + (border || 'var(--border)'), background: 'var(--surface-2)', borderRadius: '0 8px 8px 0', marginBottom: 4, cursor: onClick ? 'pointer' : null }} onClick=${onClick}>
+    <div style=${{ flex: 1, minWidth: 0 }}><div class="small b ellipsis">${name}</div>${sub && html`<div class="xs faint ellipsis">${sub}</div>`}</div>
+    ${tag && html`<${Tag} t=${tag[0]} style=${{ fontSize: 10.5 }}>${tag[1]}</${Tag}>`}<b class="num small" style=${{ minWidth: 90, textAlign: 'right' }}>${val}</b></div>`;
+  return html`<div>
+    <div class="grid g5 mb12">
+      <${Box} icon="repeat" t="MRR ativo" v=${money(mrrAtivo)} s=${ativos.length + ' clientes que continuam (mensalidade de cada mês)'} tone="good"/>
+      <${Box} icon="alert" t="Em aviso" v=${money(mrrAviso)} s=${aviso.length ? aviso.length + ' saindo: pagam até o fim do aviso e depois saem do MRR' : 'ninguém saindo'} tone=${aviso.length ? 'warn' : null}/>
+      <${Box} icon="wallet" t="Receita real (caixa)" v=${money(f.caixa)} s=${'O que caiu na conta em ' + monthShort(ym) + (pend.length ? ' · faltam ' + money(sum(pend, i => i.amount)) : '')} tone="good"/>
+      <${Box} icon="down" t="Despesas" v=${money(f.despesas + f.imposto)} s=${'O que saiu: ' + f.custos.length + ' lançamentos'}/>
+      <${Box} icon="dollar" t="Resultado" v=${money(res)} s="Receita real − despesas" tone=${res >= 0 ? 'good' : 'bad'}/>
+    </div>
+    ${inad.length > 0 && html`<div class="callout warn mb16 row between" style=${{ gap: 12 }}><div><b class="t">Inadimplência (fora das contas acima): ${money(sum(inad, i => i.amount))}</b>${inad.length} cobranças vencidas antes de ${monthLabel(ymNow())}. Não entram em "a receber" para não inflar o mês.</div><${Btn} sz="sm" on=${() => { LS.set('vos7_rec_tab', 'inad'); nav.go('recebiveis'); }}>Ver inadimplentes</${Btn}></div>`}
+    <div class="grid g2 mb16" style=${{ alignItems: 'start' }}>
+      <div class="card">
+        <div class="card-h"><h3>Receitas de ${monthLabel(ym)}</h3><span class="sub">previsto ${money(sum(doMes, i => i.amount))} · recebido ${money(sum(doMes.filter(i => i.status === 'pago'), i => i.paidAmount))}</span></div>
+        <${Group} k="ativos" title="Mensalidades — clientes ativos" total=${money(mrrAtivo)} tone="good">
+          ${ativos.map(c => html`<${Row} key=${c.id} name=${c.clientName} sub=${prodName(S, c.productId) + (c.currency && c.currency !== 'BRL' ? ' · ' + moneyCur(c.value, c.currency) : '')} val=${money(brlValue(c))} tag=${statusOf(c)} border="var(--good)" onClick=${() => nav.contract(c.id)}/>`)}
+          ${!ativos.length && html`<div class="xs faint">—</div>`}</${Group}>
+        <${Group} k="aviso" title="Em aviso — saindo" total=${money(mrrAviso)} tone="warn" hint="Ainda pagam neste mês. Depois da data de saída, deixam de entrar no MRR.">
+          ${aviso.map(c => html`<${Row} key=${c.id} name=${c.clientName} sub=${'sai em ' + fdate(c.endDate) + ' · ' + prodName(S, c.productId)} val=${money(brlValue(c))} tag=${statusOf(c)} border="var(--warn)" onClick=${() => nav.contract(c.id)}/>`)}
+          ${!aviso.length && html`<div class="xs faint">Nenhum cliente em aviso.</div>`}</${Group}>
+        <${Group} k="outros" title="Projetos, parcelas e cobranças avulsas" total=${money(sum(outros, i => i.amount))} hint="Consultorias, implantações, setups e parcelas que vencem neste mês (não são MRR).">
+          ${outros.map(i => html`<${Row} key=${i.id} name=${i.clientName} sub=${i.label + ' · vence ' + fdateShort(i.due)} val=${i.amountOrig != null ? moneyCur(i.amountOrig, i.currency) : money(i.amount)} tag=${ST_TAG[i.status]} border="var(--s1)" onClick=${() => nav.contract(i.contractId)}/>`)}
+          ${!outros.length && html`<div class="xs faint">Nada neste mês.</div>`}</${Group}>
+      </div>
+      <div class="card">
+        <div class="card-h"><h3>Despesas de ${monthLabel(ym)}</h3><${Btn} sz="xs" icon="plus" on=${() => nav.newCost()}>Despesa</${Btn}></div>
+        <${Group} k="desp" title="Custos do mês" total=${money(f.despesas)} tone="bad">
+          ${desp.map(c => html`<${Row} key=${c.id + c.due} name=${c.desc} sub=${((S.costCategories.find(x => x.id === c.category) || {}).name || '') + (c.recurring ? ' · fixo mensal' : '')} val=${money2(c.amount)} border="var(--bad)" onClick=${() => nav.go('despesas')}/>`)}
+          ${!desp.length && html`<div class="xs faint">Nenhuma despesa neste mês.</div>`}</${Group}>
+        ${f.imposto > 0 && html`<${Row} name="Imposto estimado" sub=${S.taxRate + '% sobre o caixa'} val=${money(f.imposto)} border="var(--bad)"/>`}
+        <div class="hr"/>
+        <div class="row between small mb8"><span class="muted">Receita real (caixa)</span><b class="num delta-up">${money(f.caixa)}</b></div>
+        <div class="row between small mb8"><span class="muted">− Despesas</span><b class="num delta-down">${money(f.despesas + f.imposto)}</b></div>
+        <div class="row between"><b>= Resultado do mês</b><b class=${'num ' + (res >= 0 ? 'delta-up' : 'delta-down')}>${money(res)}</b></div>
+        <div class="xs faint mt12">Se todos pagarem o que falta este mês: <b>${money(f.caixa + sum(pend, i => i.amount) - f.despesas - f.imposto)}</b>.</div>
+      </div>
+    </div>
+    <details class="card mb16"><summary class="small b" style=${{ cursor: 'pointer' }}>O que é "receita por competência"? (${money(f.receita)} em ${monthShort(ym)})</summary>
+      <div class="small muted mt8">É o valor <b>vendido/faturado</b> no mês, mesmo que ainda não tenha caído na conta: mensalidades do mês (${money(f.mensalidades)}) + projetos e setups vendidos no mês, pelo valor total (${money(f.projetos)}). Ex.: uma Consultoria 360 de R$ 5.500 vendida em setembro conta R$ 5.500 de receita em setembro, mas o caixa entra parcela por parcela. Para o dia a dia, olhe a <b>receita real (caixa)</b>.</div></details>
+  </div>`;
 }

@@ -18,7 +18,8 @@ function contractStatus(c, ref) {
 }
 const brlValue = c => (Number(c.value) || 0) * fxRate(c);
 const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
-const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
+const neverBilled = c => !!(c.endDate && c.kind === 'recorrente' && (c.firstDue || c.startDate) && c.endDate < (c.firstDue || c.startDate));
+const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && !neverBilled(c) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].
 const ASAAS_PAID = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'DUNNING_RECEIVED'];
@@ -122,7 +123,8 @@ const ISSUE_TYPES = {
   problema: { l: 'Estorno / chargeback', t: 'bad', h: 'O pagamento foi estornado ou contestado.' },
   excluida: { l: 'Excluída no Asaas', t: 'warn', h: 'A cobrança foi removida no Asaas mas segue em aberto aqui.' },
   orfa: { l: 'Cobrança no Asaas sem contrato', t: 'info', h: 'Existe no Asaas, mas não está ligada a nenhum contrato do Visions OS.' },
-  atrasada: { l: 'Atrasada', t: 'bad', h: 'Vencida e não paga.' },
+  atrasada: { l: 'Atrasada neste mês', t: 'bad', h: 'Venceu este mês e ainda não foi paga: cobrar agora.' },
+  inadimplente: { l: 'Inadimplência (meses anteriores)', t: 'info', h: 'Em atraso há mais tempo. Fica à parte dos totais do mês.' },
   sem_documento: { l: 'Cliente sem CPF/CNPJ', t: 'warn', h: 'Necessário para emitir pelo Asaas.' }
 };
 function reconcile(db, inv) {
@@ -142,7 +144,7 @@ function reconcile(db, inv) {
       if (a && ASAAS_PROBLEM.includes(a.status)) out.push({ type: 'problema', i, extra: ASAAS_LABEL[a.status] || a.status });
       if (a && a.deleted && i.status !== 'pago') out.push({ type: 'excluida', i });
     }
-    if (i.status === 'atrasado') out.push({ type: 'atrasada', i, extra: diffDays(i.due, today()) + ' dias' });
+    if (i.status === 'atrasado') out.push({ type: i.due < ymNow() + '-01' ? 'inadimplente' : 'atrasada', i, extra: diffDays(i.due, today()) + ' dias' });
   });
   const linked = linkedAsaasIds(db);
   vals(db.asaas).forEach(a => { if (!a.deleted && !refs.has(a.externalReference) && !linked.has(a.id) && !ASAAS_PAID.includes(a.status) && a.status !== 'REFUNDED') out.push({ type: 'orfa', a }); });
