@@ -25,6 +25,9 @@ async function emitInvoice(i) {
     const r = await asaasCall('findOrCreateCustomer', { name: cl.name || i.clientName, cpfCnpj: cl.document, email: cl.email, phone: cl.phone, externalReference: cl.id });
     customer = r.id; store.put('clients', Object.assign({}, cl, { asaasId: customer }));
   }
+  const dbNow = { ...store.data, S: settingsOf(store.data) };
+  const dup = suggestLinks(dbNow, [i]).find(x => x.a.customer === customer);
+  if (dup) { linkInvoice(i, dup.a); return dup.a; } // já existe no Asaas (ex.: assinatura): só vincula, não duplica
   const due = i.due < today() ? today() : i.due;
   const snap = await asaasCall('createPayment', {
     customer, billingType: (c && c.asaasBilling) || db.S.asaas.billingType || 'UNDEFINED', value: i.amount, dueDate: due,
@@ -34,14 +37,59 @@ async function emitInvoice(i) {
   return snap;
 }
 async function syncAsaas() {
-  const r = await asaasCall('listPayments', { dueFrom: addDays(today(), -200), dueTo: addDays(today(), 120) });
+  const [r, rc] = await Promise.all([asaasCall('listPayments', { dueFrom: addDays(today(), -200), dueTo: addDays(today(), 120) }), asaasCall('listCustomers', {}).catch(() => ({ customers: [] }))]);
+  const cust = {}; (rc.customers || []).forEach(c => (cust[c.id] = c));
   let changed = 0;
   (r.payments || []).forEach(p => {
+    const c = cust[p.customer]; if (c) { p.customerName = c.name; p.customerDoc = c.cpfCnpj || ''; }
     const cur = store.data.asaas[p.id];
-    if (!cur || cur.status !== p.status || cur.value !== p.value || cur.dueDate !== p.dueDate || cur.paymentDate !== p.paymentDate || !!cur.deleted !== !!p.deleted) { saveAsaasSnap(p); changed++; }
+    if (!cur || cur.status !== p.status || cur.value !== p.value || cur.dueDate !== p.dueDate || cur.paymentDate !== p.paymentDate || !!cur.deleted !== !!p.deleted || (p.customerName && cur.customerName !== p.customerName)) { saveAsaasSnap(p); changed++; }
   });
   store.setSettings({ asaasLastSync: stamp() });
-  return { total: (r.payments || []).length, changed };
+  const auto = autoLinkStrong();
+  return { total: (r.payments || []).length, changed, auto };
+}
+/* ---------- vínculo de cobranças do Asaas com o contrato ---------- */
+const STOP = new Set(['ltda', 'me', 'mei', 'eireli', 'sa', 'epp', 'de', 'da', 'do', 'dos', 'das', 'e', 'cia', 'servicos', 'comercio']);
+const nameTokens = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 1 && !STOP.has(w));
+function nameScore(a, b) { const A = new Set(nameTokens(a)), B = new Set(nameTokens(b)); if (!A.size || !B.size) return 0; let n = 0; A.forEach(w => B.has(w) && n++); return n / Math.min(A.size, B.size); }
+function suggestLinks(db, inv) {
+  const linked = linkedAsaasIds(db); const refs = new Set(inv.map(i => i.id));
+  const free = inv.filter(i => !i.asaas && i.status !== 'cancelado' && !(db.payments[i.id] && db.payments[i.id].asaasId));
+  const used = new Set(); const out = [];
+  vals(db.asaas).filter(a => !a.deleted && !linked.has(a.id) && !refs.has(a.externalReference))
+    .sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''))
+    .forEach(a => {
+      const am = ymOf(a.originalDueDate || a.dueDate);
+      let best = null;
+      free.forEach(i => {
+        if (used.has(i.id)) return;
+        if (i.origYm !== am && i.ym !== am) return;
+        if (Math.abs(Number(a.value) - i.amount) > Math.max(1, i.amount * 0.02)) return;
+        const cl = db.clients[i.clientId] || {};
+        const idMatch = cl.asaasId && cl.asaasId === a.customer;
+        const docMatch = onlyDigits(cl.document) && onlyDigits(cl.document) === onlyDigits(a.customerDoc);
+        const ns = Math.max(nameScore(a.customerName, i.clientName), nameScore(a.customerName, cl.contact), nameScore(a.description, i.clientName) * 0.8);
+        if (!idMatch && !docMatch && ns < 0.6) return;
+        const score = (idMatch ? 3 : 0) + (docMatch ? 3 : 0) + ns + (Math.abs(Number(a.value) - i.amount) < 0.01 ? 0.5 : 0);
+        if (!best || score > best.score) best = { a, i, score, strong: !!(idMatch || docMatch), why: idMatch ? 'mesmo cliente no Asaas' : docMatch ? 'mesmo CPF/CNPJ' : 'nome parecido' };
+      });
+      if (best) { used.add(best.i.id); out.push(best); }
+    });
+  return out;
+}
+function linkInvoice(i, a) {
+  const db = store.data; const prev = db.payments[i.id] || {};
+  store.put('payments', Object.assign({}, prev, { id: i.id, contractId: i.contractId, asaasId: a.id }));
+  const c = db.contracts[i.contractId]; if (c && c.billing !== 'asaas') store.put('contracts', Object.assign({}, c, { billing: 'asaas' }));
+  const cl = db.clients[i.clientId];
+  if (cl && (cl.asaasId !== a.customer || (!cl.document && a.customerDoc))) store.put('clients', Object.assign({}, cl, { asaasId: a.customer, document: cl.document || a.customerDoc || '' }));
+}
+function autoLinkStrong() {
+  const db = { ...store.data, S: settingsOf(store.data) };
+  const sug = suggestLinks(db, allInvoices(db, addMonths(ymNow(), 2))).filter(x => x.strong);
+  sug.forEach(x => linkInvoice(x.i, x.a));
+  return sug.length;
 }
 async function runAsaas(label, fn) {
   try { const r = await fn(); return r; } catch (e) { toast('Asaas: ' + e.message, null, 8000); throw e; }
@@ -108,11 +156,16 @@ function CobrancasPage({ nav }) {
   const by = groupBy(issues, x => x.type);
   const order = ['problema', 'pago_aqui_aberto_la', 'valor', 'excluida', 'sem_documento', 'nao_emitida', 'atrasada', 'vencimento', 'orfa'];
   const toEmit = (by.nao_emitida || []).map(x => x.i);
+  const sugg = useMemo(() => suggestLinks(db, inv), [inv, db.asaas, db.clients]);
+  const [bulk, setBulk] = useState(null);
+  const suggIds = new Set(sugg.map(x => x.a.id));
+  useEffect(() => { if (ready && sugg.some(x => x.strong)) { const n = autoLinkStrong(); if (n) toast(n + ' cobrança(s) do Asaas vinculadas automaticamente.'); } }, [sugg.length]);
+  const linkAll = list => { list.forEach(x => linkInvoice(x.i, x.a)); toast(list.length + ' cobrança(s) vinculadas. As próximas desses clientes serão vinculadas sozinhas.'); };
   const ext = inv.filter(i => i.billing === 'exterior' && i.status !== 'pago' && i.status !== 'cancelado' && i.due <= addDays(today(), 30));
   const extByCur = groupBy(ext, i => i.currency);
   const ym = ymNow();
   const viaAsaas = inv.filter(i => i.source === 'asaas' && i.status === 'pago' && ymOf(i.paidAt) === ym);
-  const sync = async () => { setBusy('sync'); try { const r = await runAsaas('sync', syncAsaas); toast('Asaas sincronizado: ' + r.total + ' cobranças lidas, ' + r.changed + ' atualizadas.'); } catch (e) { } setBusy(''); };
+  const sync = async () => { setBusy('sync'); try { const r = await runAsaas('sync', syncAsaas); toast('Asaas sincronizado: ' + r.total + ' cobranças lidas, ' + r.changed + ' atualizadas' + (r.auto ? ', ' + r.auto + ' vinculadas automaticamente' : '') + '.'); } catch (e) { } setBusy(''); };
   const emitAll = async () => {
     if (!confirm('Emitir ' + toEmit.length + ' cobrança(s) no Asaas? O Asaas envia a cobrança ao cliente conforme suas configurações de notificação.')) return;
     setBusy('emit'); let ok = 0, fail = 0;
@@ -143,19 +196,30 @@ function CobrancasPage({ nav }) {
       <${Kpi} l=${'Recebido via Asaas em ' + monthShort(ym)} v=${money(sum(viaAsaas, i => i.paidAmount))} s=${S.asaasLastSync ? 'sincronizado ' + new Date(S.asaasLastSync).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'baixa automática pelo webhook'} tone="good"/>
       <${Kpi} l="Exterior a receber (30 dias)" v=${Object.entries(extByCur).map(([cur, l]) => moneyCur(sum(l, i => i.amountOrig ?? i.amount), cur)).join(' + ') || '—'} s=${ext.length + ' cobranças · ≈ ' + money(sum(ext, i => i.amount))}/>
     </div>
-    ${order.filter(t => by[t]).map(t => html`<div class="card flush mb16" key=${t}>
-      <div class=${'lgroup ' + (ISSUE_TYPES[t].t === 'bad' ? 'bad' : '')}><span>${ISSUE_TYPES[t].l} (${by[t].length})</span><span style=${{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>${ISSUE_TYPES[t].h}</span></div>
-      ${by[t].slice(0, 50).map(x => html`<div class="lrow" key=${t + (x.i ? x.i.id : x.a.id)}>
+    ${sugg.length > 0 && html`<div class="card flush mb16" style=${{ borderColor: 'var(--primary-2)' }}>
+      <div class="lgroup" style=${{ color: 'var(--primary)' }}><span>Encontrei no Asaas cobranças destes contratos (${sugg.length})</span>
+        <span style=${{ textTransform: 'none', letterSpacing: 0 }}><${Btn} sz="xs" v="pri" on=${() => linkAll(sugg)}>Vincular todas</${Btn}></span></div>
+      <div class="small muted" style=${{ padding: '8px 14px' }}>Mesmo mês, mesmo valor e cliente parecido. Ao vincular, o status do Asaas (pago, vencido…) passa a valer aqui e as próximas cobranças desse cliente são ligadas sozinhas.</div>
+      ${sugg.slice(0, 60).map(x => html`<div class="lrow" key=${x.a.id}>
+        <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${x.i.clientName} · ${x.i.label}</div><div class="xs faint">Contrato: ${money2(x.i.amount)} · vence ${fdate(x.i.due)}</div></div>
+        <div style=${{ flex: 1, minWidth: 0 }}><div class="small ellipsis">↔ Asaas: <b>${x.a.customerName || x.a.description || x.a.id}</b></div><div class="xs faint">${money2(x.a.value)} · vence ${fdate(x.a.dueDate)} · ${ASAAS_LABEL[x.a.status] || x.a.status} · ${x.why}</div></div>
+        ${x.a.invoiceUrl && html`<${Btn} sz="xs" v="ghost" icon="external" href=${x.a.invoiceUrl}/>`}
+        <${Btn} sz="xs" v="pri" on=${() => { linkInvoice(x.i, x.a); toast('Vinculada.'); }}>Vincular</${Btn}></div>`)}
+    </div>`}
+    ${order.filter(t => by[t] && by[t].some(x => !(x.type === 'orfa' && suggIds.has(x.a.id)))).map(t => html`<div class="card flush mb16" key=${t}>
+      <div class=${'lgroup ' + (ISSUE_TYPES[t].t === 'bad' ? 'bad' : '')}><span>${ISSUE_TYPES[t].l} (${by[t].length})${t === 'atrasada' && html` <button class="btn xs" style=${{ marginLeft: 8, textTransform: 'none', letterSpacing: 0 }} onClick=${() => setBulk(by[t].map(x => x.i))}>Já foram pagas? Dar baixa em várias</button>`}</span><span style=${{ textTransform: 'none', letterSpacing: 0, fontWeight: 500 }}>${ISSUE_TYPES[t].h}</span></div>
+      ${by[t].filter(x => !(x.type === 'orfa' && suggIds.has(x.a.id))).slice(0, 50).map(x => html`<div class="lrow" key=${t + (x.i ? x.i.id : x.a.id)}>
         ${x.i ? html`<div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${pad(parseD(x.i.due).getDate())}</div><div class="xs faint">${MSHORT[parseD(x.i.due).getMonth()]}</div></div>
           <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => nav.contract(x.i.contractId)}><div class="main-t ellipsis">${x.i.clientName}</div><div class="xs faint row" style=${{ gap: 6, flexWrap: 'wrap' }}><${BillingBadge} i=${x.i}/><span>${x.i.label}${x.extra ? ' · ' + x.extra : ''}</span></div></div>
           <div class="num b">${x.i.amountOrig != null ? moneyCur(x.i.amountOrig, x.i.currency) : money2(x.i.amount)}</div>`
         : html`<div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${pad(parseD(x.a.dueDate).getDate())}</div><div class="xs faint">${MSHORT[parseD(x.a.dueDate).getMonth()]}</div></div>
-          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${x.a.description || 'Cobrança ' + x.a.id}</div><div class="xs faint">${ASAAS_LABEL[x.a.status] || x.a.status} · ${x.a.billingType || ''}</div></div><div class="num b">${money2(x.a.value)}</div>
+          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${x.a.customerName || x.a.description || 'Cobrança ' + x.a.id}</div><div class="xs faint">${ASAAS_LABEL[x.a.status] || x.a.status} · ${x.a.billingType || ''}</div></div><div class="num b">${money2(x.a.value)}</div>
           ${x.a.invoiceUrl && html`<${Btn} sz="xs" v="ghost" icon="external" href=${x.a.invoiceUrl}/>`}`}
         <${Actions} x=${x}/>
         <${Btn} sz="xs" v="ghost" on=${() => ignore(x)} title="Ocultar este alerta">Ignorar</${Btn}>
       </div>`)}
     </div>`)}
+    ${bulk && html`<${BulkPayModal} list=${bulk} onClose=${() => setBulk(null)}/>`}
     ${!issues.length && html`<div class="card"><${Empty} t="Nenhum erro de cobrança 🎉" s="Tudo emitido, conferido e em dia."/></div>`}
   </div>`;
 }
@@ -195,4 +259,27 @@ function AsaasSettings() {
       <div class="form c3">${['USD', 'EUR', 'GBP'].map(k => html`<${Input} key=${k} label=${'Cotação ' + k + ' (R$)'} type="number" v=${S.fx[k]} on=${v => store.setSettings({ fx: Object.assign({}, S.fx, { [k]: n0(v) }) })}/>`)}</div>
     </div>
   </div>`;
+}
+
+/* ---------- baixa em lote ---------- */
+function BulkPayModal({ list, onClose }) {
+  const [sel, setSel] = useState(() => new Set(list.map(i => i.id)));
+  const [mode, setMode] = useState('venc'); const [d, setD] = useState(today());
+  const toggle = id => setSel(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const chosen = list.filter(i => sel.has(i.id));
+  const save = () => {
+    const prevs = chosen.map(i => store.data.payments[i.id] || null);
+    chosen.forEach(i => { const prev = store.data.payments[i.id] || {}; store.put('payments', Object.assign({}, prev, { id: i.id, contractId: i.contractId, status: 'pago', paidAt: mode === 'venc' ? i.due : mode === 'hoje' ? today() : d, paidAmount: netOf(i), note: prev.note || 'baixa em lote' })); });
+    toast(chosen.length + ' cobrança(s) marcadas como recebidas.', { l: 'Desfazer', f: () => chosen.forEach((i, k) => (prevs[k] ? store.restore('payments', prevs[k]) : store.del('payments', i.id))) }, 10000);
+    onClose();
+  };
+  return html`<${Modal} title="Dar baixa em várias cobranças" size="lg" onClose=${onClose} footer=${html`<${Btn} on=${onClose}>Cancelar</${Btn}><${Btn} v="good" on=${save} disabled=${!chosen.length}>Marcar ${chosen.length} como recebida(s)</${Btn}>`}>
+    <p class="small muted" style=${{ marginTop: 0 }}>Desmarque as que <b>ainda não</b> foram pagas. As marcadas saem da lista de atrasadas e entram no caixa na data escolhida.</p>
+    <div class="row wrap mb12"><span class="small b">Data do recebimento:</span><${Seg} v=${mode} on=${setMode} opts=${[{ v: 'venc', l: 'No dia do vencimento' }, { v: 'hoje', l: 'Hoje' }, { v: 'data', l: 'Outra data' }]}/>${mode === 'data' && html`<input class="inp sm" type="date" value=${d} onChange=${e => setD(e.target.value)} style=${{ width: 160 }}/>`}</div>
+    <div class="row mb8"><${Btn} sz="xs" v="ghost" on=${() => setSel(new Set(list.map(i => i.id)))}>Marcar todas</${Btn}><${Btn} sz="xs" v="ghost" on=${() => setSel(new Set())}>Desmarcar todas</${Btn}></div>
+    <div class="card flush" style=${{ maxHeight: '50vh', overflowY: 'auto' }}>${list.map(i => html`<label class="lrow" key=${i.id} style=${{ cursor: 'pointer' }}>
+      <input type="checkbox" checked=${sel.has(i.id)} onChange=${() => toggle(i.id)} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/>
+      <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${i.clientName}</div><div class="xs faint">${i.label} · venceu ${fdate(i.due)}</div></div>
+      <b class="num">${money2(i.amount)}</b></label>`)}</div>
+  </${Modal}>`;
 }

@@ -116,6 +116,7 @@ function PayModal({ i, onClose }) {
 function ReceivablesPage({ nav }) {
   const db = useDB();
   const [tab, setTab] = useState('mes'); const [q, setQ] = useState(''); const [ym, setYm] = useState(ymNow());
+  const [bulk, setBulk] = useState(null);
   const inv = useMemo(() => allInvoices(db, addMonths(ymNow(), 12)), [db.contracts, db.payments]);
   const t = today(), in30 = addDays(t, 30);
   let list = inv.filter(i => {
@@ -133,6 +134,7 @@ function ReceivablesPage({ nav }) {
   return html`<div>
     <${PageH} t="Recebíveis" s="Todas as mensalidades e parcelas em um lugar. Clique em Recebido quando o dinheiro cair.">
       ${(tab === 'mes' || tab === 'recebido') && html`<${MonthNav} v=${ym} on=${setYm}/>`}
+      ${list.some(i => i.status === 'pendente' || i.status === 'atrasado') && html`<${Btn} icon="check" on=${() => setBulk(list.filter(i => i.status === 'pendente' || i.status === 'atrasado'))}>Dar baixa em várias</${Btn}>`}
     </${PageH}>
     <div class="grid g4 mb16">
       <${Kpi} l="Atrasado" v=${money(sum(atr, i => i.amount))} s=${atr.length + ' cobranças'} tone=${atr.length ? 'bad' : null}/>
@@ -147,6 +149,7 @@ function ReceivablesPage({ nav }) {
     <div class="card flush">
       <div class="lgroup"><span>${list.length} cobranças</span><span class="num">${money(tot)}</span></div>
       ${list.slice(0, 300).map(i => html`<${InvRow} key=${i.id} i=${i}/>`)}
+      ${bulk && html`<${BulkPayModal} list=${bulk} onClose=${() => setBulk(null)}/>`}
       ${!list.length && html`<${Empty} t="Nada por aqui" s="Cadastre vendas em Contratos para gerar as cobranças automaticamente."><${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}></${Empty}>`}
     </div>
   </div>`;

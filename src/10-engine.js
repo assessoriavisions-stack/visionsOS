@@ -26,7 +26,13 @@ const ASAAS_LABEL = { PENDING: 'Aguardando pagamento', RECEIVED: 'Recebida', CON
 const CURRENCIES = { BRL: 'R$', USD: 'US$', EUR: '€', GBP: '£' };
 const fxRate = (c, S) => (!c.currency || c.currency === 'BRL') ? 1 : (Number(c.fxRate) || Number(((S || settingsOf(store.data)).fx || {})[c.currency]) || 1);
 const moneyCur = (v, cur) => (!cur || cur === 'BRL') ? money2(v) : (CURRENCIES[cur] || cur) + ' ' + num(v, 2);
-function asaasIndex(db) { const m = {}; vals(db.asaas).forEach(a => { if (a.externalReference && !(m[a.externalReference] && !m[a.externalReference].deleted && a.deleted)) m[a.externalReference] = a; }); return m; }
+function asaasIndex(db) {
+  const m = {};
+  vals(db.asaas).forEach(a => { if (a.externalReference && !(m[a.externalReference] && !m[a.externalReference].deleted && a.deleted)) m[a.externalReference] = a; });
+  vals(db.payments).forEach(p => { if (p.asaasId && db.asaas[p.asaasId]) m[p.id] = db.asaas[p.asaasId]; }); // vínculos manuais/automáticos
+  return m;
+}
+const linkedAsaasIds = db => { const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId)); return s; };
 function invoicesOf(c, payments, horizonYm, ax) {
   const out = [];
   const pay = id => (payments && payments[id]) || null;
@@ -34,7 +40,7 @@ function invoicesOf(c, payments, horizonYm, ax) {
   const billing = c.billing || 'manual';
   const mk = (id, kind, label, due, amountOrig, extra) => {
     const p = pay(id);
-    const a = billing === 'asaas' && ax ? ax[id] : null;
+    const a = ax && ax[id] && (billing === 'asaas' || (p && p.asaasId)) ? ax[id] : null;
     const amount = Math.round(amountOrig * rate * 100) / 100;
     const amt = p && p.amount != null && p.amount !== '' ? Number(p.amount) : amount;
     const d = (p && p.due) || due;
@@ -88,7 +94,7 @@ function allInvoices(db, horizonYm) {
 
 /* ---------- conciliação: encontra erros de cobrança ---------- */
 const ISSUE_TYPES = {
-  nao_emitida: { l: 'Cobrança não emitida no Asaas', t: 'warn', h: 'O contrato é cobrado pelo Asaas, mas esta cobrança ainda não foi criada lá.' },
+  nao_emitida: { l: 'Cobrança não emitida no Asaas', t: 'warn', h: 'Ainda não existe no Asaas. Se o cliente já tem assinatura lá, clique em Sincronizar: o sistema vincula sozinho.' },
   valor: { l: 'Valor diferente no Asaas', t: 'bad', h: 'O valor da cobrança no Asaas não bate com o contrato.' },
   vencimento: { l: 'Vencimento diferente', t: 'info', h: 'A data de vencimento no Asaas é diferente da prevista no contrato.' },
   pago_aqui_aberto_la: { l: 'Pago aqui, em aberto no Asaas', t: 'bad', h: 'Você deu baixa manual, mas o Asaas ainda vai cobrar o cliente. Marque como "recebido em dinheiro" no Asaas ou cancele lá.' },
@@ -118,7 +124,8 @@ function reconcile(db, inv) {
     }
     if (i.status === 'atrasado') out.push({ type: 'atrasada', i, extra: diffDays(i.due, today()) + ' dias' });
   });
-  vals(db.asaas).forEach(a => { if (!a.deleted && !refs.has(a.externalReference) && !ASAAS_PAID.includes(a.status) && a.status !== 'REFUNDED') out.push({ type: 'orfa', a }); });
+  const linked = linkedAsaasIds(db);
+  vals(db.asaas).forEach(a => { if (!a.deleted && !refs.has(a.externalReference) && !linked.has(a.id) && !ASAAS_PAID.includes(a.status) && a.status !== 'REFUNDED') out.push({ type: 'orfa', a }); });
   return out;
 }
 

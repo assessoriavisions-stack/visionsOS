@@ -44,6 +44,15 @@ export const ACTIONS = {
     }
     return { payments: out };
   },
+  async listCustomers(p, f) {
+    const out = []; let offset = 0; let more = true; let guard = 0;
+    while (more && guard++ < 50) {
+      const r = await asaas('/customers?' + q({ offset, limit: 100 }), {}, f);
+      (r.data || []).forEach(c => out.push({ id: c.id, name: c.name, cpfCnpj: c.cpfCnpj, email: c.email, deleted: !!c.deleted }));
+      more = !!r.hasMore; offset += 100;
+    }
+    return { customers: out };
+  },
   async getPayment(p, f) { return snapshot(await asaas('/payments/' + encodeURIComponent(p.id), {}, f)); },
   async updatePayment(p, f) {
     const body = {}; if (p.value != null) body.value = Number(p.value); if (p.dueDate) body.dueDate = p.dueDate; if (p.description) body.description = p.description;
