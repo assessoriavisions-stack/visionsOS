@@ -287,6 +287,7 @@ const FIELD_RX = [
   ['sales', /(fechad|vendasfechadas|^vendas$|^sales|closed|deals)/],
   ['appts', /(agend|reuni|meeting|appoint|^conversoes$|^conversions?$)/],
   ['ticket', /ticket/],
+  ['fatTrafego', /(faturamentotrafego|receitatrafego|viatrafego|trafficrevenue)/],
   ['outros', /(outros|other|organico)/]
 ];
 function mapWeek(o) {
@@ -299,43 +300,61 @@ function mapWeek(o) {
 }
 function parseOldDashboard(raw) {
   let root; try { root = JSON.parse(raw); } catch (e) { throw new Error('Não reconheci o conteúdo colado. Copie de novo com o comando do passo 2.'); }
-  const parsed = v => { if (typeof v === 'string') { try { const j = JSON.parse(v); return typeof j === 'object' ? j : v; } catch (e) { return v; } } return v; };
-  const clients = []; const looseWeeks = [];
-  const nameOf = o => o && (o.name || o.nome || o.cliente || o.client || o.title || o.titulo);
-  const walk = (v, ctx, depth) => {
-    v = parsed(v); if (!v || typeof v !== 'object' || depth > 8) return;
+  const parsed = v => { if (typeof v === 'string' && /^\s*[\[{]/.test(v)) { try { return JSON.parse(v); } catch (e) { return v; } } return v; };
+  const nameOf = o => { const n = o && (o.name || o.nome || o.cliente || o.client || o.title || o.titulo || o.label || o.razaoSocial || o.empresa); return typeof n === 'string' && n.trim() ? n.trim() : null; };
+  const clients = {};      // id -> cliente
+  const weeksByOwner = {}; // id (ou nome) -> semanas
+  const addWeeks = (owner, ws) => { if (owner == null) return; const k = String(owner); (weeksByOwner[k] = weeksByOwner[k] || []).push(...ws); };
+  const clientFields = (c, o) => Object.entries(o).forEach(([k, x]) => {
+    if (x == null || typeof x === 'object') return; const nk = normK(k);
+    if (/(^meta|goal|target)/.test(nk)) c.goal = brNum(x);
+    else if (/roas/.test(nk)) c.roas = brNum(x);
+    else if (/cac/.test(nk)) c.cac = brNum(x);
+    else if (/(modo|mode|tipo|funil|modelo|model)/.test(nk) && typeof x === 'string') c.mode = x;
+  });
+  const walk = (v, key, owner, depth) => {
+    v = parsed(v); if (!v || typeof v !== 'object' || depth > 10) return;
     if (Array.isArray(v)) {
-      const weeks = v.map(x => (x && typeof x === 'object' && !Array.isArray(x) ? mapWeek(x) : null));
-      if (weeks.filter(Boolean).length && weeks.filter(Boolean).length >= v.length / 2) {
-        v.forEach((x, i) => { if (weeks[i]) { const cid = x.clientId || x.clienteId || x.client_id || x.cliente; (ctx && !cid ? ctx.weeks : looseWeeks).push(Object.assign(weeks[i], { _cid: cid })); } });
+      const ws = v.map(x => (x && typeof x === 'object' && !Array.isArray(x) ? mapWeek(x) : null));
+      const ok = ws.filter(Boolean).length;
+      if (ok && ok >= v.length / 2) {
+        v.forEach((x, i) => { const w = ws[i]; if (!w) return; const cid = x.clientId ?? x.clienteId ?? x.client_id ?? x.cliente ?? x.clientID; addWeeks(cid != null ? cid : (owner != null ? owner : key), [w]); });
         return;
       }
-      v.forEach(x => walk(x, ctx, depth + 1)); return;
+      v.forEach(x => walk(x, null, owner, depth + 1)); return;
     }
     const nm = nameOf(v);
-    const isClient = typeof nm === 'string' && Object.values(v).some(x => Array.isArray(parsed(x)));
-    if (isClient) {
-      const c = { id: v.id, name: nm, weeks: [] };
-      Object.entries(v).forEach(([k, x]) => {
-        const nk = normK(k);
-        if (/(^meta|goal|target)/.test(nk) && !Array.isArray(x) && typeof x !== 'object') c.goal = brNum(x);
-        else if (/roas/.test(nk) && typeof x !== 'object') c.roas = brNum(x);
-        else if (/cac/.test(nk) && typeof x !== 'object') c.cac = brNum(x);
-        else if (/(modo|mode|tipo|funil|modelo)/.test(nk) && typeof x === 'string') c.mode = x;
-        else walk(x, c, depth + 1);
-      });
-      clients.push(c); return;
+    if (nm && !mapWeek(v)) {
+      const id = v.id != null ? String(v.id) : (key != null ? String(key) : nm);
+      const c = clients[id] || { id, name: nm }; clientFields(c, v); clients[id] = c;
+      Object.entries(v).forEach(([k, x]) => walk(x, k, id, depth + 1));
+      return;
     }
-    Object.values(v).forEach(x => walk(x, ctx, depth + 1));
+    Object.entries(v).forEach(([k, x]) => walk(x, k, owner, depth + 1));
   };
-  walk(root, null, 0);
-  looseWeeks.forEach(w => { const c = clients.find(c => c.id != null && String(c.id) === String(w._cid)) || clients.find(c => c.name === w._cid); if (c) c.weeks.push(w); });
-  const out = clients.filter(c => c.weeks.length || c.goal);
-  const seen = {}; // nomes repetidos (mesmo cliente salvo em duas chaves): fica o que tem mais semanas
-  out.forEach(c => { if (!seen[c.name] || seen[c.name].weeks.length < c.weeks.length) seen[c.name] = c; });
-  return Object.values(seen).map(c => {
-    const venda = c.weeks.some(w => w._meet || w.sales) || /venda|fech|reuni/i.test(c.mode || '');
-    return { name: c.name, goal: c.goal || 0, roas: c.roas || 0, cac: c.cac || 0, model: venda ? 'venda' : 'agendamento', weeks: c.weeks.sort((a, b) => a.date.localeCompare(b.date)) };
+  walk(root, null, null, 0);
+  // semanas cujo cliente não foi encontrado: não descarta, cria "Cliente <código>"
+  const known = new Set(Object.values(clients).flatMap(c => [c.id, c.name]));
+  Object.keys(weeksByOwner).forEach(k => { if (!known.has(k)) clients[k] = { id: k, name: 'Cliente ' + k + ' (renomear)' }; });
+  const byName = {};
+  Object.values(clients).forEach(c => {
+    const ws = (weeksByOwner[c.id] || []).concat(c.id !== c.name ? (weeksByOwner[c.name] || []) : []);
+    const uniq = {}; ws.forEach(w => { uniq[w.date + '|' + w.spend + '|' + w.leads] = w; });
+    const weeks = Object.values(uniq).sort((a, b) => a.date.localeCompare(b.date));
+    if (!weeks.length && !c.goal) return;
+    if (!byName[c.name] || byName[c.name].weeks.length < weeks.length) byName[c.name] = Object.assign({}, c, { weeks });
+  });
+  return Object.values(byName).map(c => {
+    const modeTxt = String(c.mode || '');
+    const venda = /venda|fech|reuni|closed|sale/i.test(modeTxt) || (!modeTxt && c.weeks.some(w => w._meet || w.sales > 0));
+    const model = venda ? 'venda' : 'agendamento';
+    const weeks = c.weeks.map(w => { // se o painel guardou o faturamento pronto, ajusta o ticket para bater exatamente
+      const conv = model === 'venda' ? n0(w.sales) : n0(w.appts);
+      const t = Object.assign({}, w);
+      if (w.fatTrafego != null && conv > 0 && Math.abs(conv * n0(w.ticket) - w.fatTrafego) > 0.01) t.ticket = w.fatTrafego / conv;
+      return t;
+    });
+    return { name: c.name, goal: c.goal || 0, roas: c.roas || 0, cac: c.cac || 0, model, weeks };
   });
 }
 // Dados transcritos das capturas de tela enviadas em 26/11/2026 (reserva, caso não dê para copiar do navegador)
