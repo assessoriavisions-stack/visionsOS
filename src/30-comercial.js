@@ -511,7 +511,7 @@ function AnalyticsPage({ nav }) {
       <div class="card"><div class="card-h"><h3>Últimos 6 meses</h3></div>
         <${BarChart} labels=${months.map(monthShort)} highlight=${5} series=${[
       { name: 'Leads', data: hist.map(h => h.leads), color: 'var(--s1)' },
-      { name: 'Reuniões realizadas', data: hist.map(h => h.realizada), color: 'var(--s7)' },
+      { name: 'Reuniões realizadas', data: hist.map(h => h.realizada), color: 'var(--s2)' },
       { name: 'Vendas', data: hist.map(h => h.ganhos), color: 'var(--s3)' }]}/>
       </div>
     </div>

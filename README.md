@@ -49,6 +49,34 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 - **Rescisão** com aviso prévio configurável: cobra até o fim do aviso e conta o churn no mês do aviso.
 - **Clientes**: MRR, tempo de casa, LTV realizado (tudo que já pagou) e valor em atraso.
 
+### Cobranças (Asaas + exterior)
+- **Como cobrar**, escolhido em cada contrato: **Asaas** (boleto, Pix ou cartão), **Manual (Brasil)** ou **🌎 Cliente do exterior**.
+- **Asaas**: emite as cobranças (uma por uma ou "Emitir N pendentes") e cadastra o cliente lá pelo CPF/CNPJ. Quando o cliente paga, o **webhook dá baixa sozinho** em Recebíveis, com o valor líquido.
+- **Exterior** (o Asaas não cobra quem está fora do Brasil):
+  - contrato em USD, EUR ou GBP, convertido para reais nos relatórios pela cotação das Configurações (ou por uma cotação fixa no contrato);
+  - link e instruções de pagamento (Wise, PayPal, Stripe…);
+  - **lembretes prontos em inglês, espanhol ou português** por WhatsApp ou e-mail, com histórico de quantos foram enviados.
+- **Página Cobranças**: central de erros que mostra
+  - cobrança não emitida;
+  - cliente sem CPF/CNPJ;
+  - **valor diferente** entre Asaas e contrato (corrige com um clique);
+  - vencimento diferente;
+  - **pago aqui mas em aberto no Asaas** (dá baixa no Asaas para o cliente não ser cobrado de novo);
+  - estorno ou chargeback;
+  - cobrança excluída no Asaas;
+  - cobranças do Asaas sem contrato;
+  - atrasos.
+
+### Painel semanal de clientes (o dashboard do Netlify, agora dentro do sistema)
+Para cada cliente de tráfego:
+- **Registrar semana**: gasto, leads, agendamentos, ticket médio e faturamento por outros canais.
+- **Indicadores**: % da meta mensal, faturamento via tráfego × outros, ROAS, CPL, conversão de leads em agendamento, CAC por agendamento e ticket médio.
+- **Gráficos**: faturamento acumulado × meta e CPL × CAC por semana.
+- **Benchmarks**: CAC até X% do ticket e ROAS esperado, ajustáveis por cliente.
+- **Histórico** editável, filtro de período e **Exportar PDF**.
+
+Diferente do painel antigo, os dados ficam **na nuvem**, não em um navegador só. O painel antigo salvava tudo no navegador de quem lançou, então os registros de lá precisam ser lançados de novo aqui (é rápido: uma linha por semana).
+
 ### Metas e calculadoras
 - **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
 - **Calculadora de metas & CAC** (funil reverso, no estilo Visions Tracking): parte da meta de novo MRR e calcula vendas, reuniões, leads e investimento. Mostra CAC projetado × CAC máximo (LTV ÷ 3), LTV:CAC, payback, custo por reunião e diagnóstico. O botão "Usar meus números reais" preenche com os últimos 90 dias, e "Salvar metas" grava direto nas metas do mês.
@@ -65,7 +93,27 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 
 ---
 
-## 3. Como começar
+## 3. Publicar no Netlify (necessário para o Asaas)
+
+1. No Netlify: **Add new site → Import an existing project → GitHub** e escolha este repositório. O `netlify.toml` já configura tudo: o build gera `dist/index.html` e as funções ficam em `netlify/functions`.
+2. Em **Site configuration → Environment variables**, crie:
+
+   | Variável | Valor |
+   |---|---|
+   | `ASAAS_API_KEY` | chave da API do Asaas (Asaas → Integrações → Chave de API) |
+   | `VOS_SECRET` | uma senha longa inventada por você, digitada uma vez em Configurações → Asaas |
+   | `ASAAS_WEBHOOK_TOKEN` | outra senha inventada, usada no webhook |
+   | `ASAAS_ENV` | `sandbox` para testar; apague para usar produção |
+
+3. No Asaas: **Integrações → Webhooks → Adicionar**.
+   - URL: `https://SEU-SITE.netlify.app/.netlify/functions/asaas-webhook`
+   - Token: o mesmo do `ASAAS_WEBHOOK_TOKEN`
+   - Eventos: os de **Cobranças**
+4. No Visions OS: **Configurações → Asaas e exterior**. Ative, cole o `VOS_SECRET` e clique em **Testar conexão**.
+
+A chave do Asaas fica só na função do Netlify e nunca vai para o navegador. A função só responde a quem envia o `VOS_SECRET` e guarda no banco apenas os campos que o sistema usa: nenhum dado de cartão é guardado.
+
+## 4. Como começar
 
 1. Abra o `index.html` (ou publique-o).
 2. Entre com **a mesma senha do Visions OS atual** e escolha seu nome.
@@ -81,7 +129,7 @@ Para testar sem mexer no banco: abra `index.html?local=1`. Nesse modo os dados f
 
 ---
 
-## 4. Para quem for mexer no código
+## 5. Para quem for mexer no código
 
 ```
 src/
@@ -92,14 +140,19 @@ src/
   20-ui.js              componentes (campos, modais, gráficos SVG com tooltip)
   30-comercial.js       pipeline, ficha do lead, cadências, follow-ups, prospecção, análise
   40-financeiro.js      visão geral, recebíveis, contratos, despesas, clientes
+  45-cobranca.js        Asaas (emissão, sincronização, conciliação) e lembretes do exterior
   50-metas.js           metas e calculadoras
+  55-performance.js     painel semanal de clientes (tráfego, ROAS, CPL, CAC, meta)
   60-app.js             Hoje, configurações, importação, login, navegação
-build.js                gera o index.html único:  node build.js
+build.js                gera o index.html único (e dist/index.html):  node build.js
+netlify/functions/      asaas.mjs (ponte segura com a API) e asaas-webhook.mjs (baixa automática)
 ```
+
+Visual: paleta Visions (laranja `#FF6700` nos destaques, azul `#2050A0`/`#4C6FE0`, dourado `#C7860A`, verde `#17A567`) com fonte Inter. As cores ficam nos tokens de `src/styles.css`.
 
 Stack: React 18 + [htm](https://github.com/developit/htm) via CDN, sem etapa de compilação além do `build.js`.
 
-**Dados** (Firebase RTDB, em `/vos/vos7_<coleção>/<id>`): `deals`, `cadences`, `prospect` (contadores por dia/pessoa), `spend` (investimento por canal/mês), `goals`, `clients`, `contracts`, `payments` (baixas; as cobranças são geradas dos contratos com IDs determinísticos) e `costs`, além de `vos7_settings`. Cada item é gravado separadamente, então duas pessoas editando ao mesmo tempo não apagam o trabalho uma da outra.
+**Dados** (Firebase RTDB, em `/vos/vos7_<coleção>/<id>`): `deals`, `cadences`, `prospect` (contadores por dia/pessoa), `spend` (investimento por canal/mês), `goals`, `clients`, `contracts`, `payments` (baixas; as cobranças são geradas dos contratos com IDs determinísticos), `costs`, `perf` (semanas do painel de clientes) e `asaas` (cópia das cobranças do Asaas, ligadas pelo `externalReference` = ID da cobrança), além de `vos7_settings`. Cada item é gravado separadamente, então duas pessoas editando ao mesmo tempo não apagam o trabalho uma da outra.
 
 ### ⚠️ Segurança do Firebase
 O banco atual (`visions-os2-default-rtdb`) é acessado **sem autenticação**: quem tiver a URL consegue ler e gravar, inclusive dados de clientes e financeiros. A senha do sistema só protege a tela, não o banco. Recomendo, como próximo passo, ativar o Firebase Authentication e travar as regras do Realtime Database.

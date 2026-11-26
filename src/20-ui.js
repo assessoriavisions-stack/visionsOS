@@ -141,9 +141,9 @@ const showTip = (e, c) => tipBus.set && tipBus.set({ x: e.clientX, y: e.clientY,
 const hideTip = () => tipBus.set && tipBus.set(null);
 
 /* ---------- gráfico de barras agrupadas (eixo único, base zero) ---------- */
-function BarChart({ labels, series, h = 200, fmt, line, highlight }) {
+function BarChart({ labels, series, h = 200, fmt, line, highlight, stacked, refLine }) {
   const W = 640, H = h, padL = 54, padB = 24, padT = 10;
-  const all = series.flatMap(s => s.data).concat(line ? line.data : []);
+  const all = (stacked ? labels.map((_, i) => sum(series, s => s.data[i])) : series.flatMap(s => s.data)).concat(line ? line.data : []).concat(refLine ? [refLine.v] : []);
   const maxV = Math.max(1, ...all.map(v => Math.abs(v || 0)));
   const minV = Math.min(0, ...all);
   const nice = v => { const p = Math.pow(10, Math.floor(Math.log10(v))); return Math.ceil(v / p) * p; };
@@ -160,7 +160,9 @@ function BarChart({ labels, series, h = 200, fmt, line, highlight }) {
     const gx = padL + i * gw + (gw - series.length * (bw + 2)) / 2;
     return html`<g key=${lb}>
           ${highlight === i && html`<rect x=${padL + i * gw + 2} y=${padT} width=${gw - 4} height=${H - padT - padB} fill="var(--primary-soft)" rx="6"/>`}
-          ${series.map((s, k) => {
+          ${stacked ? (() => { let acc = 0; const sw = Math.min(36, gw - 14); const x = padL + i * gw + (gw - sw) / 2; const lastK = series.reduce((t, s2, k) => (s2.data[i] > 0 ? k : t), -1);
+      return series.map((s, k) => { const v = Math.max(0, s.data[i] || 0); if (!v) return null; const yb = y(acc) - (acc > 0 ? 2 : 0); acc += v; const yt = y(acc); const hh = Math.max(0, yb - yt); const r = k === lastK ? Math.min(4, sw / 2, hh) : 0;
+        return html`<path key=${k} d=${`M${x},${yb} V${yt + r} Q${x},${yt} ${x + r},${yt} H${x + sw - r} Q${x + sw},${yt} ${x + sw},${yt + r} V${yb} Z`} fill=${s.color}/>`; }); })() : series.map((s, k) => {
       const v = s.data[i] || 0; const y0 = y(0), y1 = y(v); const hh = Math.abs(y0 - y1);
       const x = gx + k * (bw + 2);
       const r = Math.min(4, bw / 2, hh);
@@ -175,10 +177,11 @@ function BarChart({ labels, series, h = 200, fmt, line, highlight }) {
             onMouseLeave=${hideTip}/>
         </g>`;
   })}
+      ${refLine && html`<g pointer-events="none"><line x1=${padL} x2=${W} y1=${y(refLine.v)} y2=${y(refLine.v)} stroke=${refLine.color} stroke-width="2" stroke-dasharray="6 4"/><text x=${W} y=${y(refLine.v) - 5} text-anchor="end" style=${{ fill: refLine.color, fontWeight: 700 }}>${refLine.name}</text></g>`}
       ${line && html`<g pointer-events="none"><polyline fill="none" stroke=${line.color} stroke-width="2" points=${line.data.map((v, i) => (padL + i * gw + gw / 2) + ',' + y(v || 0)).join(' ')}/>
         ${line.data.map((v, i) => html`<circle key=${i} cx=${padL + i * gw + gw / 2} cy=${y(v || 0)} r="4" fill=${line.color} stroke="var(--surface)" stroke-width="2"/>`)}</g>`}
     </svg>
-    ${(series.length > 1 || line) && html`<div class="legend">${series.map(s => html`<span key=${s.name}><i style=${{ background: s.color }}/>${s.name}</span>`)}${line && html`<span><i style=${{ background: line.color, height: 3 }}/>${line.name}</span>`}</div>`}
+    ${(series.length > 1 || line || refLine) && html`<div class="legend">${series.map(s => html`<span key=${s.name}><i style=${{ background: s.color }}/>${s.name}</span>`)}${line && html`<span><i style=${{ background: line.color, height: 3 }}/>${line.name}</span>`}${refLine && html`<span><i style=${{ background: refLine.color, height: 3 }}/>${refLine.name}</span>`}</div>`}
   </div>`;
 }
 

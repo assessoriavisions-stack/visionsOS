@@ -9,4 +9,6 @@ const out = R('src/index.template.html')
   .split('{{LOGO}}').join(R('assets/logo.datauri').trim())
   .replace('{{JS}}', () => js);
 fs.writeFileSync(path.join(__dirname, 'index.html'), out);
+fs.mkdirSync(path.join(__dirname, 'dist'), { recursive: true });
+fs.writeFileSync(path.join(__dirname, 'dist', 'index.html'), out); // pasta publicada no Netlify
 console.log('index.html gerado:', (out.length / 1024).toFixed(0) + ' KB');

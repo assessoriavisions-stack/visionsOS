@@ -3,11 +3,12 @@
    ============================================================ */
 const METHODS = [{ v: 'pix', l: 'Pix' }, { v: 'boleto', l: 'Boleto' }, { v: 'cartao', l: 'Cartão de crédito' }, { v: 'transferencia', l: 'Transferência' }, { v: 'dinheiro', l: 'Dinheiro' }];
 const methodL = v => (METHODS.find(m => m.v === v) || {}).l || v || '—';
-const ST_TAG = { pago: ['good', 'Pago'], atrasado: ['bad', 'Atrasado'], pendente: ['', 'A receber'], cancelado: ['', 'Cancelado'] };
+const ST_TAG = { pago: ['good', 'Pago'], atrasado: ['bad', 'Atrasado'], pendente: ['', 'A receber'], cancelado: ['', 'Cancelado'], problema: ['bad', 'Estorno/contestação'] };
 const ctStatusTag = s => ({ ativo: ['good', 'Ativo'], aviso: ['warn', 'Em aviso'], encerrado: ['', 'Encerrado'], projeto: ['info', 'Projeto'] }[s] || ['', s]);
+const cv = (c, v) => (c.currency && c.currency !== 'BRL' ? moneyCur(v, c.currency) : money(v));
 const condText = c => c.kind === 'recorrente'
-  ? money(c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + money(c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
-  : (Number(c.installments) > 1 ? c.installments + 'x de ' + money(c.value / c.installments) : 'à vista') + ' · total ' + money(c.value);
+  ? cv(c, c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + cv(c, c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
+  : (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, c.value / c.installments) : 'à vista') + ' · total ' + cv(c, c.value);
 
 /* ---------- visão geral ---------- */
 function FinancePage({ nav }) {
@@ -79,14 +80,16 @@ function InvRow({ i, onClick }) {
   return html`<div class="lrow">
     <div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${pad(parseD(i.due).getDate())}</div><div class="xs faint">${MSHORT[parseD(i.due).getMonth()]}</div></div>
     <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => setPay(true)}><div class="main-t ellipsis">${i.clientName || '—'}</div>
-      <div class="xs faint row" style=${{ gap: 6, flexWrap: 'wrap' }}><${Tag} t=${t} style=${{ fontSize: 10.5, padding: '0 6px' }}>${l}</${Tag}><span>${i.label} · ${methodL(i.method)}${i.status === 'pago' ? ' · recebido ' + fdate(i.paidAt) : ''}</span></div></div>
-    <div class="num b" style=${{ textAlign: 'right', whiteSpace: 'nowrap' }}>${money(i.status === 'pago' ? i.paidAmount : i.amount, true)}</div>
+      <div class="xs faint row" style=${{ gap: 6, flexWrap: 'wrap' }}><${Tag} t=${t} style=${{ fontSize: 10.5, padding: '0 6px' }}>${l}</${Tag}><${BillingBadge} i=${i}/><span>${i.label}${i.billing === 'asaas' ? (i.asaas ? ' · ' + (ASAAS_LABEL[i.asaas.status] || i.asaas.status) : '') : ' · ' + methodL(i.method)}${i.status === 'pago' ? ' · recebido ' + fdate(i.paidAt) : ''}</span></div></div>
+    <div class="num b" style=${{ textAlign: 'right', whiteSpace: 'nowrap' }}>${i.amountOrig != null && i.status !== 'pago' ? html`<span>${moneyCur(i.amountOrig, i.currency)}<div class="xs faint" style=${{ fontWeight: 500 }}>≈ ${money(i.amount)}</div></span>` : money(i.status === 'pago' ? i.paidAmount : i.amount, true)}</div>
+    <${InvActions} i=${i}/>
     ${i.status !== 'pago' && i.status !== 'cancelado' ? html`<${Btn} sz="xs" v="good" icon="check" on=${() => quickPay(i)} title="Marcar como recebido hoje">Recebido</${Btn}>` : html`<${Btn} sz="xs" v="ghost" on=${() => setPay(true)}>Detalhes</${Btn}>`}
     ${pay && html`<${PayModal} i=${i} onClose=${() => setPay(false)}/>`}
   </div>`;
 }
 function netOf(i) { const S = settingsOf(store.data); return i.method === 'cartao' && S.cardFee ? Math.round(i.amount * (1 - S.cardFee / 100) * 100) / 100 : i.amount; }
 function quickPay(i) {
+  if (i.billing === 'asaas' && i.asaas && !i.asaas.deleted && !confirm('Esta cobrança está no Asaas. Se o cliente pagou por lá, a baixa é automática. Dar baixa manual mesmo assim? (Depois, em Cobranças, você pode dar baixa no Asaas também para ele não cobrar de novo.)')) return;
   const prev = store.data.payments[i.id];
   store.put('payments', Object.assign({}, prev || {}, { id: i.id, contractId: i.contractId, status: 'pago', paidAt: today(), paidAmount: netOf(i) }));
   toast('Recebimento de ' + money(netOf(i), true) + ' registrado.', { l: 'Desfazer', f: () => prev ? store.restore('payments', prev) : store.del('payments', i.id) });
@@ -101,10 +104,11 @@ function PayModal({ i, onClose }) {
   const cancel = () => { store.put('payments', Object.assign({}, prev, base, { status: 'cancelado', note: f.note })); onClose(); toast('Cobrança cancelada (não entra mais no previsto).'); };
   return html`<${Modal} title=${i.clientName + ' — ' + i.label} onClose=${onClose}
     footer=${html`${i.status !== 'cancelado' && html`<${Btn} v="ghost" cls="danger" on=${cancel}>Cancelar cobrança</${Btn}>`}<span style=${{ flex: 1 }}/><${Btn} on=${saveOpen}>${i.status === 'pago' ? 'Marcar como não pago' : 'Salvar sem receber'}</${Btn}><${Btn} v="good" on=${savePaid}>Salvar como recebido</${Btn}>`}>
+    ${i.asaas && html`<div class="callout info mb12"><b class="t">Asaas: ${ASAAS_LABEL[i.asaas.status] || i.asaas.status}</b>${money2(i.asaas.value)} · vence ${fdate(i.asaas.dueDate)}${i.asaas.netValue != null ? ' · líquido ' + money2(i.asaas.netValue) : ''}${i.asaas.invoiceUrl ? html` · <a href=${i.asaas.invoiceUrl} target="_blank" rel="noopener">abrir fatura</a>` : ''}</div>`}
     <div class="form c2">
-      <${Money} label="Valor da cobrança" v=${f.amount} on=${F('amount')}/>
+      <${Money} label="Valor da cobrança (R$)" v=${f.amount} on=${F('amount')}/>
       <${Input} label="Vencimento" type="date" v=${f.due} on=${F('due')}/>
-      <${Money} label="Valor recebido (líquido)" v=${f.paidAmount} on=${F('paidAmount')} hint=${i.method === 'cartao' ? 'Já descontada a taxa do cartão de ' + settingsOf(store.data).cardFee + '%' : ''}/>
+      <${Money} label="Valor recebido (líquido)" v=${f.paidAmount} on=${F('paidAmount')} hint=${i.amountOrig != null ? 'Cobrança de ' + moneyCur(i.amountOrig, i.currency) + ': informe quanto caiu em reais (câmbio e taxas)' : i.method === 'cartao' ? 'Já descontada a taxa do cartão de ' + settingsOf(store.data).cardFee + '%' : ''}/>
       <${Input} label="Data do recebimento" type="date" v=${f.paidAt} on=${F('paidAt')}/>
       <${Input} cls="span3" label="Observação" v=${f.note} on=${F('note')} ph="Ex: pagou com juros, comprovante no Drive…"/>
     </div></${Modal}>`;
@@ -155,14 +159,18 @@ function ContractForm({ init, onClose, onSaved, deal }) {
   const [f, setF] = useState(() => Object.assign({
     clientId: '', clientName: '', productId: firstProd.id, kind: firstProd.kind || 'recorrente', value: firstProd.price || '', payDay: '10',
     startDate: today(), firstDue: today(), installments: 1, method: 'pix', setupValue: firstProd.setup || '', setupInstallments: 1, setupFirstDue: today(),
-    channelId: '', ownerId: CURRENT_USER.id, fidelity: '', notes: '', phone: '', document: '', email: ''
+    channelId: '', ownerId: CURRENT_USER.id, fidelity: '', notes: '', phone: '', document: '', email: '',
+    billing: S.asaas.enabled ? 'asaas' : 'manual', asaasBilling: '', currency: 'BRL', fxRate: '', payLink: '', payInstructions: '', reminderLang: 'en'
   }, init || {}));
+  const curCl = f.clientId ? db.clients[f.clientId] : null;
+  const [doc, setDoc] = useState(() => (curCl && curCl.document) || f.document || '');
+  const sym = f.billing === 'exterior' ? (CURRENCIES[f.currency] || f.currency) : 'R$';
   const F = k => v => setF(p => ({ ...p, [k]: v }));
   const isNew = !f.id;
   const pickProd = id => { const p = prodOf(S, id) || {}; setF(x => ({ ...x, productId: id, kind: p.kind || x.kind, value: isNew ? (p.price || x.value) : x.value, setupValue: isNew ? (p.setup || '') : x.setupValue })); };
   const clients = vals(db.clients).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const preview = useMemo(() => {
-    const c = Object.assign({ id: 'preview' }, f, { value: n0(f.value), setupValue: n0(f.setupValue) });
+    const c = Object.assign({ id: 'preview' }, f, { value: n0(f.value), setupValue: n0(f.setupValue), currency: f.billing === 'exterior' ? f.currency : 'BRL', fxRate: n0(f.fxRate) || '' });
     if (c.kind === 'recorrente') c.endDate = ''; // prévia sem término
     return invoicesOf(c, {}, addMonths(ymOf(f.firstDue || today()), 2)).filter(i => i.kind !== 'mensal' || i.n <= 3);
   }, [f]);
@@ -173,9 +181,12 @@ function ContractForm({ init, onClose, onSaved, deal }) {
     let clientId = f.clientId;
     if (!clientId) {
       const ex = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
-      clientId = ex ? ex.id : store.put('clients', { name, phone: f.phone, email: f.email, document: f.document, channelId: f.channelId, since: f.startDate }).id;
+      clientId = ex ? ex.id : store.put('clients', { name, phone: f.phone, email: f.email, document: doc, channelId: f.channelId, since: f.startDate, country: f.billing === 'exterior' ? 'exterior' : 'BR' }).id;
     }
-    const obj = Object.assign({}, f, { clientId, clientName: name, value: n0(f.value), setupValue: f.kind === 'recorrente' ? n0(f.setupValue) : 0, installments: Math.max(1, n0(f.installments)), setupInstallments: Math.max(1, n0(f.setupInstallments)), payDay: n0(f.payDay) || parseD(f.firstDue).getDate() });
+    const clNow = store.data.clients[clientId];
+    if (clNow && doc && clNow.document !== doc) store.put('clients', Object.assign({}, clNow, { document: doc }));
+    if (f.billing === 'asaas' && !onlyDigits(doc)) { if (!confirm('Sem CPF/CNPJ não dá para emitir no Asaas. Salvar mesmo assim e completar depois?')) return; }
+    const obj = Object.assign({}, f, { currency: f.billing === 'exterior' ? f.currency : 'BRL', fxRate: f.billing === 'exterior' ? n0(f.fxRate) || '' : '', clientId, clientName: name, value: n0(f.value), setupValue: f.kind === 'recorrente' ? n0(f.setupValue) : 0, installments: Math.max(1, n0(f.installments)), setupInstallments: Math.max(1, n0(f.setupInstallments)), payDay: n0(f.payDay) || parseD(f.firstDue).getDate() });
     if (deal) obj.dealId = deal.id;
     const saved = store.put('contracts', obj);
     if (deal && deal.stage !== 'ganho') store.put('deals', Object.assign({}, deal, stagePatch(deal, 'ganho'), { contractId: saved.id, clientId }, logActivity(deal, 'nota', 'Venda fechada: ' + prodName(S, f.productId) + ' — ' + condText(obj))));
@@ -191,22 +202,32 @@ function ContractForm({ init, onClose, onSaved, deal }) {
           <datalist id="vos-clients">${clients.map(c => html`<option key=${c.id} value=${c.name}/>`)}</datalist></div>`}</${Field}>
       <${Select} label="Canal de origem (p/ CAC)" v=${f.channelId} on=${F('channelId')} ph="—" opts=${S.channels.map(c => ({ v: c.id, l: c.name }))}/>
       <${Field} label="Produto" cls="span3"><${Chips} v=${f.productId} on=${pickProd} opts=${S.products.map(p => ({ v: p.id, l: p.name }))}/></${Field}>
+      <${Field} label="Como cobrar" cls="span3"><${Seg} v=${f.billing} on=${v => setF(x => ({ ...x, billing: v, currency: v === 'exterior' ? (x.currency && x.currency !== 'BRL' ? x.currency : 'USD') : 'BRL' }))} opts=${[{ v: 'asaas', l: 'Asaas (boleto · Pix · cartão)' }, { v: 'manual', l: 'Manual (Brasil)' }, { v: 'exterior', l: '🌎 Cliente do exterior' }]}/></${Field}>
+      ${f.billing === 'asaas' && html`<${Input} label="CPF / CNPJ do cliente" v=${doc} on=${setDoc} ph="Obrigatório para o Asaas"/>
+        <${Select} label="Forma no Asaas" v=${f.asaasBilling} on=${F('asaasBilling')} ph=${'Padrão (' + ({ UNDEFINED: 'cliente escolhe', PIX: 'Pix', BOLETO: 'boleto', CREDIT_CARD: 'cartão' }[S.asaas.billingType] || '') + ')'} opts=${[{ v: 'UNDEFINED', l: 'Cliente escolhe' }, { v: 'PIX', l: 'Pix' }, { v: 'BOLETO', l: 'Boleto' }, { v: 'CREDIT_CARD', l: 'Cartão de crédito' }]}/>`}
+      ${f.billing === 'exterior' && html`<div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}><div class="form c3">
+        <${Select} label="Moeda" v=${f.currency} on=${F('currency')} opts=${['USD', 'EUR', 'GBP'].map(c => ({ v: c, l: c }))}/>
+        <${Input} label="Cotação fixa (opcional)" type="number" v=${f.fxRate} on=${F('fxRate')} ph=${'padrão ' + num(S.fx[f.currency] || 0, 2)} hint="Vazio = usa a cotação das Configurações"/>
+        <${Select} label="Idioma do lembrete" v=${f.reminderLang} on=${F('reminderLang')} opts=${[{ v: 'en', l: 'English' }, { v: 'es', l: 'Español' }, { v: 'pt', l: 'Português' }]}/>
+        <${Input} cls="span2" label="Link de pagamento" v=${f.payLink} on=${F('payLink')} ph="Wise, PayPal, Stripe…"/>
+        <${Input} label="E-mail do financeiro" v=${f.email} on=${F('email')}/>
+        <${Textarea} cls="span3" label="Instruções de pagamento (vão no lembrete)" v=${f.payInstructions} on=${F('payInstructions')} rows=${2} ph="Ex: dados bancários internacionais / IBAN"/></div></div>`}
       <${Field} label="Tipo de cobrança" cls="span3"><${Seg} v=${f.kind} on=${F('kind')} opts=${[{ v: 'recorrente', l: 'Recorrente (mensalidade)' }, { v: 'projeto', l: 'Projeto / valor fechado (parcelável)' }]}/></${Field}>
       ${f.kind === 'recorrente' ? html`
-        <${Money} label="Mensalidade" v=${f.value} on=${F('value')}/>
+        <${Input} type="number" pre=${sym} label="Mensalidade" v=${f.value} on=${F('value')}/>
         <${Input} label="Dia de vencimento" type="number" min="1" max="31" v=${f.payDay} on=${F('payDay')}/>
         <${Input} label="Início do contrato" type="date" v=${f.startDate} on=${v => setF({ ...f, startDate: v, firstDue: f.firstDue === f.startDate ? v : f.firstDue })} hint="Conta como venda e MRR neste mês"/>
         <${Input} label="1º vencimento" type="date" v=${f.firstDue} on=${F('firstDue')}/>
         <${Input} label="Fidelidade (meses)" type="number" v=${f.fidelity} on=${F('fidelity')} ph="Ex: 6"/>
-        <${Select} label="Forma de pagamento" v=${f.method} on=${F('method')} opts=${METHODS}/>
+        ${f.billing !== 'asaas' ? html`<${Select} label="Forma de pagamento" v=${f.method} on=${F('method')} opts=${METHODS}/>` : html`<div/>`}
         <div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}>
           <div class="b small mb8">Setup / implantação (opcional)</div>
-          <div class="form c3"><${Money} label="Valor do setup" v=${f.setupValue} on=${F('setupValue')}/>
+          <div class="form c3"><${Input} type="number" pre=${sym} label="Valor do setup" v=${f.setupValue} on=${F('setupValue')}/>
             <${Input} label="Parcelas" type="number" min="1" v=${f.setupInstallments} on=${F('setupInstallments')}/>
             <${Input} label="1ª parcela" type="date" v=${f.setupFirstDue} on=${F('setupFirstDue')}/></div></div>
       ` : html`
-        <${Money} label="Valor total do projeto" v=${f.value} on=${F('value')}/>
-        <${Select} label="Forma de pagamento" v=${f.method} on=${F('method')} opts=${METHODS}/>
+        <${Input} type="number" pre=${sym} label="Valor total do projeto" v=${f.value} on=${F('value')}/>
+        ${f.billing !== 'asaas' ? html`<${Select} label="Forma de pagamento" v=${f.method} on=${F('method')} opts=${METHODS}/>` : html`<div/>`}
         <${Field} label="Parcelas" cls="span3"><div class="row wrap"><${Chips} v=${Number(f.installments)} on=${v => F('installments')(v || 1)} opts=${P.map(n => ({ v: n, l: n === 1 ? 'À vista' : n + 'x' }))}/><input class="inp sm" style=${{ width: 70 }} type="number" min="1" value=${f.installments} onChange=${e => F('installments')(e.target.value)}/></div></${Field}>
         <${Input} label="Data da venda" type="date" v=${f.startDate} on=${v => setF({ ...f, startDate: v, firstDue: f.firstDue === f.startDate ? v : f.firstDue })} hint=${S.projectRecognition === 'venda' ? 'A receita entra inteira neste mês (competência)' : 'A receita entra conforme as parcelas vencem'}/>
         <${Input} label="1ª parcela" type="date" v=${f.firstDue} on=${F('firstDue')}/>
@@ -216,7 +237,8 @@ function ContractForm({ init, onClose, onSaved, deal }) {
     </div>
     <div class="card tight mt16" style=${{ background: 'var(--surface-2)' }}>
       <div class="row between mb8"><b class="small">Prévia das cobranças</b><span class="xs faint">${f.kind === 'recorrente' ? 'mostrando os 3 primeiros meses' : ''}</span></div>
-      ${preview.map(i => html`<div key=${i.id} class="row between small" style=${{ padding: '3px 0' }}><span>${fdate(i.due)} · ${i.label}</span><b class="num">${money2(i.amount)}</b></div>`)}
+      ${preview.map(i => html`<div key=${i.id} class="row between small" style=${{ padding: '3px 0' }}><span>${fdate(i.due)} · ${i.label}</span><b class="num">${i.amountOrig != null ? moneyCur(i.amountOrig, i.currency) + ' ≈ ' + money(i.amount) : money2(i.amount)}</b></div>`)}
+      ${f.billing === 'asaas' && html`<div class="xs faint mt8">Com o Asaas conectado, cada cobrança é emitida lá (em Cobranças ou no botão "Emitir") e a baixa acontece sozinha quando o cliente paga.</div>`}
       ${f.method === 'cartao' && html`<div class="xs faint mt8">Cartão: ao marcar como recebido, o sistema sugere o valor líquido descontando ${S.cardFee}% de taxa.</div>`}
     </div>
   </${Modal}>`;
@@ -258,7 +280,7 @@ function ContractsPage({ nav }) {
   const all = vals(db.contracts).map(c => ({ c, st: contractStatus(c) }));
   const cnt = s => all.filter(x => x.st === s).length;
   const list = all.filter(x => x.st === tab && (!q || (x.c.clientName || '').toLowerCase().includes(q.toLowerCase()))).sort((a, b) => (b.c.startDate || '').localeCompare(a.c.startDate || ''));
-  const mrr = sum(all.filter(x => x.st === 'ativo' || x.st === 'aviso'), x => x.c.value);
+  const mrr = sum(all.filter(x => x.st === 'ativo' || x.st === 'aviso'), x => brlValue(x.c));
   return html`<div>
     <${PageH} t="Contratos" s=${'MRR atual ' + money(mrr) + ' · ' + cnt('ativo') + ' recorrentes ativos'}>
       <${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}>
@@ -269,7 +291,7 @@ function ContractsPage({ nav }) {
       ${list.map(({ c, st }) => html`<tr key=${c.id} class="click" onClick=${() => nav.contract(c.id)}>
         <td><div class="b">${c.clientName}</div>${c.endDate && html`<div class="xs" style=${{ color: 'var(--warn)' }}>termina ${fdate(c.endDate)}</div>`}</td>
         <td class="small">${prodName(S, c.productId)}</td><td class="small">${c.kind === 'recorrente' ? 'Mensal · dia ' + c.payDay : (c.installments > 1 ? c.installments + 'x' : 'À vista')}${c.setupValue > 0 ? ' + setup' : ''}</td>
-        <td class="small">${methodL(c.method)}</td><td class="small">${fdate(c.startDate)}</td><td class="r num b">${money(c.value)}${c.kind === 'recorrente' ? html`<span class="faint xs">/mês</span>` : ''}</td></tr>`)}
+        <td class="small">${c.billing === 'asaas' ? 'Asaas' : c.billing === 'exterior' ? '🌎 ' + c.currency : methodL(c.method)}</td><td class="small">${fdate(c.startDate)}</td><td class="r num b">${cv(c, c.value)}${c.kind === 'recorrente' ? html`<span class="faint xs">/mês</span>` : ''}</td></tr>`)}
     </tbody></table>${!list.length && html`<${Empty} t="Nenhum contrato aqui" s=""/>`}</div>
   </div>`;
 }
@@ -337,7 +359,7 @@ function ClientsPage({ nav }) {
     const act = cts.filter(c => ['ativo', 'aviso'].includes(contractStatus(c)));
     const ci = inv.filter(i => i.clientId === cl.id);
     const first = cts.map(c => c.startDate).filter(Boolean).sort()[0];
-    return { cl, cts, act, mrr: sum(act.filter(c => c.kind === 'recorrente'), c => c.value), paid: sum(ci.filter(i => i.status === 'pago'), i => i.paidAmount), late: sum(ci.filter(i => i.status === 'atrasado'), i => i.amount), first, months: first ? Math.max(0, diffDays(first, today()) / 30.4) : 0 };
+    return { cl, cts, act, mrr: sum(act.filter(c => c.kind === 'recorrente'), c => brlValue(c)), paid: sum(ci.filter(i => i.status === 'pago'), i => i.paidAmount), late: sum(ci.filter(i => i.status === 'atrasado'), i => i.amount), first, months: first ? Math.max(0, diffDays(first, today()) / 30.4) : 0 };
   }).filter(r => !q || r.cl.name.toLowerCase().includes(q.toLowerCase())).sort((a, b) => b.mrr - a.mrr || a.cl.name.localeCompare(b.cl.name));
   const ativos = rows.filter(r => r.act.length);
   return html`<div>

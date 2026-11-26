@@ -112,6 +112,9 @@ const DEFAULT_SETTINGS = {
   dailyGoals: { ig_dm: 20, wpp: 10 },
   calcGoal: null,
   calcProsp: {},
+  fx: { USD: 5.4, EUR: 5.9, GBP: 6.9 },
+  asaas: { enabled: false, proxyUrl: '/.netlify/functions/asaas', billingType: 'UNDEFINED', emitDays: 10 },
+  perfBench: { roas: 3, cacShare: 50 },
   seeded: false
 };
 
@@ -196,7 +199,7 @@ const DEFAULT_CADENCES = [
 /* ---------- storage: Firebase RTDB (REST) + cache local + fila offline ---------- */
 const FB_BASE = 'https://visions-os2-default-rtdb.firebaseio.com/vos';
 const NS = 'vos7_';
-const COLLS = ['clients', 'contracts', 'payments', 'costs', 'deals', 'cadences', 'prospect', 'spend', 'goals'];
+const COLLS = ['clients', 'contracts', 'payments', 'costs', 'deals', 'cadences', 'prospect', 'spend', 'goals', 'perf', 'asaas'];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sem storage */ } }
@@ -312,6 +315,7 @@ const settingsOf = d => {
   const s = Object.assign({}, DEFAULT_SETTINGS, d.settings || {});
   ['products', 'channels', 'team', 'costCategories', 'lossReasons'].forEach(k => { if (!Array.isArray(s[k]) || !s[k].length) s[k] = DEFAULT_SETTINGS[k]; });
   s.dailyGoals = s.dailyGoals || {}; s.calcProsp = s.calcProsp || {};
+  s.fx = Object.assign({}, DEFAULT_SETTINGS.fx, s.fx || {}); s.asaas = Object.assign({}, DEFAULT_SETTINGS.asaas, s.asaas || {}); s.perfBench = Object.assign({}, DEFAULT_SETTINGS.perfBench, s.perfBench || {});
   return s;
 };
 

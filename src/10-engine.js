@@ -15,21 +15,43 @@ function contractStatus(c, ref) {
   if (c.endDate) return 'aviso';
   return 'ativo';
 }
+const brlValue = c => (Number(c.value) || 0) * fxRate(c);
+const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
 const contractActiveIn = (c, ym) => c.kind === 'recorrente' && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].
-function invoicesOf(c, payments, horizonYm) {
+const ASAAS_PAID = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'DUNNING_RECEIVED'];
+const ASAAS_PROBLEM = ['REFUNDED', 'REFUND_REQUESTED', 'REFUND_IN_PROGRESS', 'CHARGEBACK_REQUESTED', 'CHARGEBACK_DISPUTE', 'AWAITING_CHARGEBACK_REVERSAL'];
+const ASAAS_LABEL = { PENDING: 'Aguardando pagamento', RECEIVED: 'Recebida', CONFIRMED: 'Confirmada', OVERDUE: 'Vencida', REFUNDED: 'Estornada', RECEIVED_IN_CASH: 'Recebida em dinheiro', REFUND_REQUESTED: 'Estorno solicitado', REFUND_IN_PROGRESS: 'Estorno em processamento', CHARGEBACK_REQUESTED: 'Chargeback', CHARGEBACK_DISPUTE: 'Disputa de chargeback', AWAITING_CHARGEBACK_REVERSAL: 'Aguardando reversão', DUNNING_REQUESTED: 'Em negativação', DUNNING_RECEIVED: 'Recuperada', AWAITING_RISK_ANALYSIS: 'Em análise' };
+const CURRENCIES = { BRL: 'R$', USD: 'US$', EUR: '€', GBP: '£' };
+const fxRate = (c, S) => (!c.currency || c.currency === 'BRL') ? 1 : (Number(c.fxRate) || Number(((S || settingsOf(store.data)).fx || {})[c.currency]) || 1);
+const moneyCur = (v, cur) => (!cur || cur === 'BRL') ? money2(v) : (CURRENCIES[cur] || cur) + ' ' + num(v, 2);
+function asaasIndex(db) { const m = {}; vals(db.asaas).forEach(a => { if (a.externalReference && !(m[a.externalReference] && !m[a.externalReference].deleted && a.deleted)) m[a.externalReference] = a; }); return m; }
+function invoicesOf(c, payments, horizonYm, ax) {
   const out = [];
   const pay = id => (payments && payments[id]) || null;
-  const mk = (id, kind, label, due, amount, extra) => {
+  const rate = fxRate(c);
+  const billing = c.billing || 'manual';
+  const mk = (id, kind, label, due, amountOrig, extra) => {
     const p = pay(id);
+    const a = billing === 'asaas' && ax ? ax[id] : null;
+    const amount = Math.round(amountOrig * rate * 100) / 100;
     const amt = p && p.amount != null && p.amount !== '' ? Number(p.amount) : amount;
     const d = (p && p.due) || due;
-    let status = p && p.status === 'pago' ? 'pago' : p && p.status === 'cancelado' ? 'cancelado' : (d < today() ? 'atrasado' : 'pendente');
+    let status = d < today() ? 'atrasado' : 'pendente', paidAt = null, paidAmount = 0, source = 'local';
+    if (p && p.status === 'pago') { status = 'pago'; paidAt = p.paidAt; paidAmount = Number(p.paidAmount != null ? p.paidAmount : amt); }
+    else if (p && p.status === 'cancelado') status = 'cancelado';
+    else if (a && !a.deleted) {
+      source = 'asaas';
+      if (ASAAS_PAID.includes(a.status)) { status = 'pago'; paidAt = a.paymentDate || a.clientPaymentDate || a.confirmedDate || a.dueDate; paidAmount = Number(a.netValue != null ? a.netValue : a.value); }
+      else if (ASAAS_PROBLEM.includes(a.status)) status = 'problema';
+      else if (a.status === 'OVERDUE') status = 'atrasado';
+    }
     out.push(Object.assign({
-      id, contractId: c.id, clientId: c.clientId, clientName: c.clientName, productId: c.productId, method: c.method || 'pix',
-      kind, label, due: d, ym: ymOf(d), origYm: ymOf(due), amount: amt, status,
-      paidAt: p && p.paidAt, paidAmount: p && p.status === 'pago' ? Number(p.paidAmount != null ? p.paidAmount : amt) : 0, note: p && p.note
+      id, contractId: c.id, clientId: c.clientId, clientName: c.clientName, productId: c.productId, method: c.method || 'pix', billing,
+      currency: c.currency || 'BRL', amountOrig: rate !== 1 ? amountOrig : null,
+      kind, label, due: d, ym: ymOf(d), origYm: ymOf(due), amount: amt, status, source,
+      paidAt, paidAmount, note: p && p.note, reminders: (p && p.reminders) || [], asaas: a
     }, extra || {}));
   };
   const splitAmounts = (total, n) => {
@@ -60,7 +82,44 @@ function invoicesOf(c, payments, horizonYm) {
   return out;
 }
 function allInvoices(db, horizonYm) {
-  return vals(db.contracts).flatMap(c => invoicesOf(c, db.payments, horizonYm));
+  const ax = asaasIndex(db);
+  return vals(db.contracts).flatMap(c => invoicesOf(c, db.payments, horizonYm, ax));
+}
+
+/* ---------- conciliação: encontra erros de cobrança ---------- */
+const ISSUE_TYPES = {
+  nao_emitida: { l: 'Cobrança não emitida no Asaas', t: 'warn', h: 'O contrato é cobrado pelo Asaas, mas esta cobrança ainda não foi criada lá.' },
+  valor: { l: 'Valor diferente no Asaas', t: 'bad', h: 'O valor da cobrança no Asaas não bate com o contrato.' },
+  vencimento: { l: 'Vencimento diferente', t: 'info', h: 'A data de vencimento no Asaas é diferente da prevista no contrato.' },
+  pago_aqui_aberto_la: { l: 'Pago aqui, em aberto no Asaas', t: 'bad', h: 'Você deu baixa manual, mas o Asaas ainda vai cobrar o cliente. Marque como "recebido em dinheiro" no Asaas ou cancele lá.' },
+  problema: { l: 'Estorno / chargeback', t: 'bad', h: 'O pagamento foi estornado ou contestado.' },
+  excluida: { l: 'Excluída no Asaas', t: 'warn', h: 'A cobrança foi removida no Asaas mas segue em aberto aqui.' },
+  orfa: { l: 'Cobrança no Asaas sem contrato', t: 'info', h: 'Existe no Asaas, mas não está ligada a nenhum contrato do Visions OS.' },
+  atrasada: { l: 'Atrasada', t: 'bad', h: 'Vencida e não paga.' },
+  sem_documento: { l: 'Cliente sem CPF/CNPJ', t: 'warn', h: 'Necessário para emitir pelo Asaas.' }
+};
+function reconcile(db, inv) {
+  const S = db.S; const out = [];
+  const emitUntil = addDays(today(), Number(S.asaas.emitDays) || 10);
+  const refs = new Set(inv.map(i => i.id));
+  inv.forEach(i => {
+    if (i.status === 'cancelado') return;
+    const a = i.asaas; const p = db.payments[i.id];
+    if (i.billing === 'asaas') {
+      if (!a && i.status !== 'pago' && i.due <= emitUntil) {
+        const cl = db.clients[i.clientId];
+        out.push({ type: cl && onlyDigits(cl.document) ? 'nao_emitida' : 'sem_documento', i });
+      }
+      if (a && !a.deleted && Math.abs(Number(a.value) - i.amount) > 0.01 && !ASAAS_PAID.includes(a.status)) out.push({ type: 'valor', i, extra: 'Asaas: ' + money2(a.value) + ' · contrato: ' + money2(i.amount) });
+      if (a && !a.deleted && a.dueDate && a.dueDate !== i.due && !ASAAS_PAID.includes(a.status)) out.push({ type: 'vencimento', i, extra: 'Asaas: ' + fdate(a.dueDate) + ' · contrato: ' + fdate(i.due) });
+      if (a && !a.deleted && p && p.status === 'pago' && (a.status === 'PENDING' || a.status === 'OVERDUE')) out.push({ type: 'pago_aqui_aberto_la', i });
+      if (a && ASAAS_PROBLEM.includes(a.status)) out.push({ type: 'problema', i, extra: ASAAS_LABEL[a.status] || a.status });
+      if (a && a.deleted && i.status !== 'pago') out.push({ type: 'excluida', i });
+    }
+    if (i.status === 'atrasado') out.push({ type: 'atrasada', i, extra: diffDays(i.due, today()) + ' dias' });
+  });
+  vals(db.asaas).forEach(a => { if (!a.deleted && !refs.has(a.externalReference) && !ASAAS_PAID.includes(a.status) && a.status !== 'REFUNDED') out.push({ type: 'orfa', a }); });
+  return out;
 }
 
 /* ---------- despesas ---------- */
@@ -80,15 +139,15 @@ function monthFinance(db, ym, inv) {
   const invs = inv || allInvoices(db, addMonths(ym, 1));
   const cts = vals(db.contracts);
   const recurring = cts.filter(c => contractActiveIn(c, ym));
-  const mrr = sum(recurring, c => c.value);
+  const mrr = sum(recurring, c => brlValue(c));
   // competência
   const mensalidades = sum(invs.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   let projetos = 0;
   if (S.projectRecognition === 'parcela') {
     projetos = sum(invs.filter(i => (i.kind === 'parcela' || i.kind === 'setup') && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   } else {
-    projetos = sum(cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym), c => c.value)
-      + sum(cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym), c => c.setupValue);
+    projetos = sum(cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym), c => brlValue(c))
+      + sum(cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym), c => brlSetup(c));
   }
   const receita = mensalidades + projetos;
   // caixa
@@ -107,15 +166,15 @@ function monthFinance(db, ym, inv) {
   // movimentos de MRR
   const novos = cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym);
   const churned = cts.filter(c => c.kind === 'recorrente' && ymOf(c.noticeDate || c.endDate) === ym && (c.noticeDate || c.endDate));
-  const novoMrr = sum(novos, c => c.value);
-  const churnMrr = sum(churned, c => c.value);
+  const novoMrr = sum(novos, c => brlValue(c));
+  const churnMrr = sum(churned, c => brlValue(c));
   const projetosVendidos = cts.filter(c => c.kind === 'projeto' && ymOf(c.startDate) === ym && !c.canceled);
   return {
     ym, mrr, recurring, receita, mensalidades, projetos, caixa, recebidos, previsto, aReceber, atrasadas,
     atrasadoTotal: sum(atrasadas, i => i.amount), custos, despesas, despesasCac, imposto,
     resultadoCaixa: caixa - despesas - imposto, resultadoCompetencia: receita - despesas - imposto,
     novos, churned, novoMrr, churnMrr, netMrr: novoMrr - churnMrr, projetosVendidos,
-    vendasValor: novoMrr + sum(projetosVendidos, c => c.value) + sum(novos, c => c.setupValue)
+    vendasValor: novoMrr + sum(projetosVendidos, c => brlValue(c)) + sum(novos, c => brlSetup(c))
   };
 }
 

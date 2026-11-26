@@ -78,14 +78,15 @@ function ListEditor({ items, cols, onChange, newItem, addLabel }) {
 }
 function SettingsPage() {
   const db = useDB(); const S = db.S;
-  const [tab, setTab] = useState('geral');
+  const [tab, setTabRaw] = useState(() => { const t = LS.get('vos7_cfgtab', 'geral'); LS.set('vos7_cfgtab', 'geral'); return t; });
+  const setTab = setTabRaw;
   const set = patch => store.setSettings(patch);
   const theme = LS.get('vos7_theme', 'system');
   const setTheme = t => { LS.set('vos7_theme', t); applyTheme(); toast('Tema aplicado.'); };
   const retAuto = retentionAuto(db);
   return html`<div>
     <${PageH} t="Configurações" s="Produtos, canais, equipe e parâmetros usados nos cálculos."/>
-    <div class="mb16"><${Seg} v=${tab} on=${setTab} opts=${[{ v: 'geral', l: 'Geral' }, { v: 'produtos', l: 'Produtos' }, { v: 'canais', l: 'Canais' }, { v: 'equipe', l: 'Equipe' }, { v: 'despesas', l: 'Categorias' }, { v: 'importar', l: 'Importar dados' }, { v: 'backup', l: 'Backup' }]}/></div>
+    <div class="mb16"><${Seg} v=${tab} on=${setTab} opts=${[{ v: 'geral', l: 'Geral' }, { v: 'produtos', l: 'Produtos' }, { v: 'canais', l: 'Canais' }, { v: 'equipe', l: 'Equipe' }, { v: 'despesas', l: 'Categorias' }, { v: 'asaas', l: 'Asaas e exterior' }, { v: 'importar', l: 'Importar dados' }, { v: 'backup', l: 'Backup' }]}/></div>
     ${tab === 'geral' && html`<div class="grid g2" style=${{ alignItems: 'start' }}>
       <div class="card"><div class="card-h"><h3>Financeiro</h3></div><div class="form c2">
         <${Select} cls="span3" label="Receita de projetos (ex: Consultoria 360 parcelada)" v=${S.projectRecognition} on=${v => set({ projectRecognition: v })} opts=${[{ v: 'venda', l: 'Inteira no mês da venda (recomendado)' }, { v: 'parcela', l: 'Conforme cada parcela vence' }]}/>
@@ -117,6 +118,7 @@ function SettingsPage() {
       <${ListEditor} items=${S.team} onChange=${v => set({ team: v })} newItem=${{ name: 'Nome', role: '' }} cols=${[{ k: 'name', l: 'Nome', w: 200 }, { k: 'role', l: 'Função', w: 200 }]}/></div>`}
     ${tab === 'despesas' && html`<div class="card"><div class="card-h"><h3>Categorias de despesa</h3><span class="sub">marque as que entram no cálculo do CAC</span></div>
       <${ListEditor} items=${S.costCategories} onChange=${v => set({ costCategories: v })} newItem=${{ name: 'Nova categoria', cac: false }} cols=${[{ k: 'name', l: 'Nome', w: 280 }, { k: 'cac', l: 'Entra no CAC', type: 'bool', w: 90 }]}/></div>`}
+    ${tab === 'asaas' && html`<${AsaasSettings}/>`}
     ${tab === 'importar' && html`<${ImportV6}/>`}
     ${tab === 'backup' && html`<${BackupBox}/>`}
   </div>`;
@@ -290,9 +292,11 @@ const PAGES = [
   { id: 'analise', l: 'Análise comercial', icon: 'chart', g: 'Comercial' },
   { id: 'financeiro', l: 'Visão geral', icon: 'wallet', g: 'Financeiro' },
   { id: 'recebiveis', l: 'Recebíveis', icon: 'inbox', g: 'Financeiro' },
+  { id: 'cobrancas', l: 'Cobranças', icon: 'alert', g: 'Financeiro' },
   { id: 'contratos', l: 'Contratos', icon: 'file', g: 'Financeiro' },
   { id: 'despesas', l: 'Despesas', icon: 'down', g: 'Financeiro' },
-  { id: 'clientes', l: 'Clientes', icon: 'users', g: 'Financeiro' },
+  { id: 'clientes', l: 'Carteira de clientes', icon: 'users', g: 'Clientes' },
+  { id: 'performance', l: 'Painel semanal', icon: 'chart', g: 'Clientes' },
   { id: 'metas', l: 'Metas do mês', icon: 'flag', g: 'Metas' },
   { id: 'calc_meta', l: 'Calc. metas & CAC', icon: 'calc', g: 'Metas' },
   { id: 'calc_prosp', l: 'Calc. prospecção', icon: 'calc', g: 'Metas' },
@@ -331,10 +335,12 @@ function Shell({ onLogout }) {
   }, []);
   const fu = followupBuckets(db, CURRENT_USER.id || null);
   const fuN = fu.atrasado.length + fu.hoje.length;
-  const lateN = useMemo(() => allInvoices(db, ymNow()).filter(i => i.status === 'atrasado').length, [db.contracts, db.payments]);
-  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null };
+  const invNow = useMemo(() => allInvoices(db, addMonths(ymNow(), 1)), [db.contracts, db.payments, db.asaas, db.settings]);
+  const lateN = invNow.filter(i => i.status === 'atrasado').length;
+  const issN = useMemo(() => reconcile(db, invNow).filter(x => x.type !== 'atrasada' && ISSUE_TYPES[x.type].t !== 'info').length, [invNow]);
+  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null };
   const cur = PAGES.find(p => p.id === page) || PAGES[0];
-  const P = { hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
+  const P = { hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
   let lastG = null;
   const NavItems = () => PAGES.map(p => {
     const head = p.g !== lastG && p.g ? html`<div class="grp" key=${'g' + p.g}>${p.g}</div>` : null; lastG = p.g;
@@ -346,7 +352,7 @@ function Shell({ onLogout }) {
       <div class="brand"><img src=${window.VOS_LOGO} alt="Visions Marketing"/></div>
       <div class="tagline">Visions OS · Performance</div>
       <${NavItems}/>
-      <div class="foot"><${SyncBadge}/><div class="row between"><span>👤 ${CURRENT_USER.name}</span><button class="btn ghost xs" style=${{ color: '#c9c7f0' }} onClick=${onLogout}><${Icon} n="logout" s=${14}/>Sair</button></div></div>
+      <div class="foot"><${SyncBadge}/><div class="row between"><span>👤 ${CURRENT_USER.name}</span><button class="btn ghost xs" onClick=${onLogout}><${Icon} n="logout" s=${14}/>Sair</button></div></div>
     </aside>
     <main class="main">
       <div class="top">
