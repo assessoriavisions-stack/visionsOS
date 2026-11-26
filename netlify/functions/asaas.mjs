@@ -1,9 +1,9 @@
 // Ponte segura Visions OS -> Asaas. A chave fica em variável de ambiente do Netlify (ASAAS_API_KEY),
 // nunca no navegador. Toda chamada exige o segredo VOS_SECRET no cabeçalho x-vos-secret.
-import { ASAAS_BASE, json, snapshot, saveSnapshot } from './_asaas-shared.mjs';
+import { ASAAS_BASE, json, snapshot, saveSnapshot, getFetch } from '../shared/asaas-shared.mjs';
 
-async function asaas(path, opts = {}, fetchImpl = fetch) {
-  const r = await fetchImpl(ASAAS_BASE() + path, {
+async function asaas(path, opts = {}, fetchImpl) {
+  const r = await (fetchImpl || getFetch())(ASAAS_BASE() + path, {
     method: opts.method || 'GET',
     headers: { 'Content-Type': 'application/json', 'User-Agent': 'VisionsOS', access_token: process.env.ASAAS_API_KEY },
     body: opts.body ? JSON.stringify(opts.body) : undefined
@@ -56,8 +56,9 @@ export const ACTIONS = {
   }
 };
 
-export async function handler(event, _ctx, fetchImpl) {
-  const f = fetchImpl || fetch;
+export async function handler(event) {
+  // Atenção: o Netlify passa (event, context, callback) — não usar o 3º parâmetro como fetch.
+  const f = getFetch();
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, body: '' };
   if (event.httpMethod !== 'POST') return json(405, { error: 'Use POST' });
   if (!process.env.ASAAS_API_KEY || !process.env.VOS_SECRET) return json(500, { error: 'Configure ASAAS_API_KEY e VOS_SECRET nas variáveis de ambiente do Netlify.' });

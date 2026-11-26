@@ -11,7 +11,7 @@ async function asaasCall(action, params) {
     body: JSON.stringify({ action, params })
   }).catch(() => { throw new Error('Não consegui falar com a função do Asaas. O sistema precisa estar publicado no Netlify (veja Configurações → Asaas).'); });
   let data = null; try { data = await r.json(); } catch (e) { /* vazio */ }
-  if (!r.ok) throw new Error((data && data.error) || 'Erro ' + r.status);
+  if (!r.ok) throw new Error((data && data.error) || (r.status === 404 ? 'Função do Asaas não encontrada (404). Confira se o site foi publicado pelo Netlify a partir do GitHub.' : r.status >= 500 ? 'A função do Netlify falhou (erro ' + r.status + '). Veja em Netlify → Logs → Functions → asaas.' : 'Erro ' + r.status));
   return data;
 }
 const saveAsaasSnap = s => { if (s && s.id) store.restore('asaas', Object.assign({}, store.data.asaas[s.id] || {}, s)); };

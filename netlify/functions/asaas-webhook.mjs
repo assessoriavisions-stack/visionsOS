@@ -2,10 +2,11 @@
 // grava uma cópia da cobrança no Firebase (vos7_asaas). O Visions OS concilia a partir disso.
 // Configure no Asaas: Integrações → Webhooks → URL = https://SEU-SITE.netlify.app/.netlify/functions/asaas-webhook
 // e o "Token de autenticação" igual à variável ASAAS_WEBHOOK_TOKEN.
-import { json, saveSnapshot } from './_asaas-shared.mjs';
+import { json, saveSnapshot, getFetch } from '../shared/asaas-shared.mjs';
 
-export async function handler(event, _ctx, fetchImpl) {
-  const f = fetchImpl || fetch;
+export async function handler(event) {
+  // Atenção: o Netlify passa (event, context, callback) — não usar o 3º parâmetro como fetch.
+  const f = getFetch();
   if (event.httpMethod !== 'POST') return json(405, { error: 'Use POST' });
   const h = event.headers || {};
   const tok = h['asaas-access-token'] || h['Asaas-Access-Token'];
