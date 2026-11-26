@@ -6,7 +6,7 @@ const methodL = v => (METHODS.find(m => m.v === v) || {}).l || v || '—';
 const ST_TAG = { pago: ['good', 'Pago'], atrasado: ['bad', 'Atrasado'], pendente: ['', 'A receber'], cancelado: ['', 'Cancelado'], problema: ['bad', 'Estorno/contestação'] };
 const ctStatusTag = s => ({ ativo: ['good', 'Ativo'], aviso: ['warn', 'Em aviso'], encerrado: ['', 'Encerrado'], projeto: ['info', 'Projeto'] }[s] || ['', s]);
 const cv = (c, v) => (c.currency && c.currency !== 'BRL' ? moneyCur(v, c.currency) : money(v));
-const condText = c => c.kind === 'recorrente'
+const condText = c => c.kind === 'espelho' ? 'Espelho do Asaas: todas as cobranças do cliente' + (c.value ? ' · ≈ ' + cv(c, c.value) + '/mês' : '') : c.kind === 'recorrente'
   ? cv(c, c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + cv(c, c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
   : (Number(c.downPayment) > 0 ? 'entrada ' + cv(c, c.downPayment) + ' + ' : '') + (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, (c.value - (Number(c.downPayment) || 0)) / c.installments) : (Number(c.downPayment) > 0 ? 'saldo' : 'à vista')) + ' · total ' + cv(c, c.value);
 
@@ -278,8 +278,9 @@ function ContractDrawer({ id, onClose }) {
   const paid = sum(inv.filter(i => i.status === 'pago'), i => i.paidAmount);
   const head = html`<div><div class="row between"><div><h3 style=${{ fontSize: 18 }}>${c.clientName}</h3><div class="muted small">${prodName(S, c.productId)} · ${condText(c)}</div></div><button class="btn ghost icon" onClick=${onClose}><${Icon} n="x"/></button></div>
     <div class="row wrap mt12"><${Tag} t=${tt}>${tl}</${Tag}>${c.channelId && html`<${Tag}>${chName(S, c.channelId)}</${Tag}>`}<${Tag}>Início ${fdate(c.startDate)}</${Tag}>${c.endDate && html`<${Tag} t="warn">Término ${fdate(c.endDate)}</${Tag}>`}${c.fidelity && html`<${Tag}>Fidelidade ${c.fidelity}m</${Tag}>`}</div>
-    <div class="row wrap mt12"><${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
-      ${c.kind === 'recorrente' && !c.endDate && html`<${Btn} sz="sm" cls="danger" on=${() => setEnd(true)}>Registrar rescisão</${Btn}>`}
+    <div class="row wrap mt12">${c.kind !== 'espelho' && html`<${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>`}
+      ${c.kind === 'espelho' && html`<${Btn} sz="sm" on=${() => { const v = prompt('Valor mensal aproximado (para o MRR e relatórios), em R$:', c.value || ''); if (v != null) store.put('contracts', Object.assign({}, c, { value: n0(v) })); }}>Valor mensal aprox.</${Btn}>`}
+      ${(c.kind === 'recorrente' || c.kind === 'espelho') && !c.endDate && html`<${Btn} sz="sm" cls="danger" on=${() => setEnd(true)}>Registrar rescisão</${Btn}>`}
       ${c.endDate && html`<${Btn} sz="sm" on=${() => store.put('contracts', Object.assign({}, c, { endDate: '', noticeDate: '' }))}>Reativar</${Btn}>`}
       <span style=${{ flex: 1 }}/><${Btn} sz="sm" v="ghost" cls="danger" icon="trash" on=${() => { onClose(); delWithUndo('contracts', c.id, 'Contrato'); }}>Excluir</${Btn}></div></div>`;
   return html`<${Drawer} onClose=${onClose} head=${head}>
@@ -306,7 +307,7 @@ function ContractsPage({ nav }) {
     <div class="card flush tbl-wrap"><table class="tbl"><thead><tr><th>Cliente</th><th>Produto</th><th>Condição</th><th>Pagamento</th><th>Início</th><th class="r">Valor</th></tr></thead><tbody>
       ${list.map(({ c, st }) => html`<tr key=${c.id} class="click" onClick=${() => nav.contract(c.id)}>
         <td><div class="b">${c.clientName}</div>${c.endDate && html`<div class="xs" style=${{ color: 'var(--warn)' }}>termina ${fdate(c.endDate)}</div>`}</td>
-        <td class="small">${prodName(S, c.productId)}</td><td class="small">${c.kind === 'recorrente' ? 'Mensal · dia ' + c.payDay : (c.installments > 1 ? c.installments + 'x' : 'À vista')}${c.setupValue > 0 ? ' + setup' : ''}</td>
+        <td class="small">${prodName(S, c.productId)}</td><td class="small">${c.kind === 'espelho' ? 'Espelho do Asaas' : c.kind === 'recorrente' ? 'Mensal · dia ' + c.payDay : (c.installments > 1 ? c.installments + 'x' : 'À vista')}${c.setupValue > 0 ? ' + setup' : ''}</td>
         <td class="small">${c.billing === 'asaas' ? 'Asaas' : c.billing === 'exterior' ? '🌎 ' + c.currency : methodL(c.method)}</td><td class="small">${fdate(c.startDate)}</td><td class="r num b">${cv(c, c.value)}${c.kind === 'recorrente' ? html`<span class="faint xs">/mês</span>` : ''}</td></tr>`)}
     </tbody></table>${!list.length && html`<${Empty} t="Nenhum contrato aqui" s=""/>`}</div>
   </div>`;

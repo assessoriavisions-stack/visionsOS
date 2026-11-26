@@ -699,13 +699,14 @@ function contractStatus(c, ref) {
     if (c.canceled) return 'encerrado';
     return 'projeto';
   }
+  if (c.kind === 'espelho') return c.endDate && c.endDate < t ? 'encerrado' : 'ativo';
   if (c.endDate && c.endDate < t) return 'encerrado';
   if (c.endDate) return 'aviso';
   return 'ativo';
 }
 const brlValue = c => (Number(c.value) || 0) * fxRate(c);
 const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
-const contractActiveIn = (c, ym) => c.kind === 'recorrente' && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
+const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].
 const ASAAS_PAID = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'DUNNING_RECEIVED'];
@@ -720,12 +721,17 @@ function asaasIndex(db) {
   vals(db.payments).forEach(p => { if (p.asaasId && db.asaas[p.asaasId]) m[p.id] = db.asaas[p.asaasId]; }); // vínculos manuais/automáticos
   return m;
 }
-const linkedAsaasIds = db => { const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId)); return s; };
+const mirrorCustomers = db => new Set(vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).map(c => c.asaasCustomer));
+const linkedAsaasIds = db => {
+  const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId));
+  const mc = mirrorCustomers(db); vals(db.asaas).forEach(a => { if (mc.has(a.customer)) s.add(a.id); }); // contratos espelho
+  return s;
+};
 function invoicesOf(c, payments, horizonYm, ax) {
   const out = [];
   const pay = id => (payments && payments[id]) || null;
   const rate = fxRate(c);
-  const billing = c.billing || 'manual';
+  const billing = c.kind === 'espelho' ? 'asaas' : (c.billing || 'manual');
   const mk = (id, kind, label, due, amountOrig, extra) => {
     const p = pay(id);
     const a = ax && ax[id] && (billing === 'asaas' || (p && p.asaasId)) ? ax[id] : null;
@@ -754,6 +760,10 @@ function invoicesOf(c, payments, horizonYm, ax) {
     const base = Math.floor((total / n) * 100) / 100; const arr = Array(n).fill(base);
     arr[n - 1] = Math.round((total - base * (n - 1)) * 100) / 100; return arr;
   };
+  if (c.kind === 'espelho') {
+    (c._mirror || []).forEach((a, i) => mk(c.id + '-a' + a.id, 'mensal', (a.description && a.description.length < 40 ? a.description : 'Cobrança') + ' ' + fdateShort(a.dueDate), a.dueDate, Number(a.value) / (fxRate(c) || 1), { n: i + 1 }));
+    return out;
+  }
   if (c.kind === 'recorrente') {
     const first = c.firstDue || c.startDate;
     if (first) {
@@ -782,6 +792,11 @@ function invoicesOf(c, payments, horizonYm, ax) {
 }
 function allInvoices(db, horizonYm) {
   const ax = asaasIndex(db);
+  // contratos "espelho do Asaas": cada cobrança do cliente no Asaas vira um recebível
+  vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).forEach(c => {
+    c._mirror = vals(db.asaas).filter(a => a.customer === c.asaasCustomer && !a.deleted).sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''));
+    c._mirror.forEach(a => (ax[c.id + '-a' + a.id] = a));
+  });
   return vals(db.contracts).flatMap(c => invoicesOf(c, db.payments, horizonYm, ax));
 }
 
@@ -1859,7 +1874,7 @@ const methodL = v => (METHODS.find(m => m.v === v) || {}).l || v || '—';
 const ST_TAG = { pago: ['good', 'Pago'], atrasado: ['bad', 'Atrasado'], pendente: ['', 'A receber'], cancelado: ['', 'Cancelado'], problema: ['bad', 'Estorno/contestação'] };
 const ctStatusTag = s => ({ ativo: ['good', 'Ativo'], aviso: ['warn', 'Em aviso'], encerrado: ['', 'Encerrado'], projeto: ['info', 'Projeto'] }[s] || ['', s]);
 const cv = (c, v) => (c.currency && c.currency !== 'BRL' ? moneyCur(v, c.currency) : money(v));
-const condText = c => c.kind === 'recorrente'
+const condText = c => c.kind === 'espelho' ? 'Espelho do Asaas: todas as cobranças do cliente' + (c.value ? ' · ≈ ' + cv(c, c.value) + '/mês' : '') : c.kind === 'recorrente'
   ? cv(c, c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + cv(c, c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
   : (Number(c.downPayment) > 0 ? 'entrada ' + cv(c, c.downPayment) + ' + ' : '') + (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, (c.value - (Number(c.downPayment) || 0)) / c.installments) : (Number(c.downPayment) > 0 ? 'saldo' : 'à vista')) + ' · total ' + cv(c, c.value);
 
@@ -2131,8 +2146,9 @@ function ContractDrawer({ id, onClose }) {
   const paid = sum(inv.filter(i => i.status === 'pago'), i => i.paidAmount);
   const head = html`<div><div class="row between"><div><h3 style=${{ fontSize: 18 }}>${c.clientName}</h3><div class="muted small">${prodName(S, c.productId)} · ${condText(c)}</div></div><button class="btn ghost icon" onClick=${onClose}><${Icon} n="x"/></button></div>
     <div class="row wrap mt12"><${Tag} t=${tt}>${tl}</${Tag}>${c.channelId && html`<${Tag}>${chName(S, c.channelId)}</${Tag}>`}<${Tag}>Início ${fdate(c.startDate)}</${Tag}>${c.endDate && html`<${Tag} t="warn">Término ${fdate(c.endDate)}</${Tag}>`}${c.fidelity && html`<${Tag}>Fidelidade ${c.fidelity}m</${Tag}>`}</div>
-    <div class="row wrap mt12"><${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
-      ${c.kind === 'recorrente' && !c.endDate && html`<${Btn} sz="sm" cls="danger" on=${() => setEnd(true)}>Registrar rescisão</${Btn}>`}
+    <div class="row wrap mt12">${c.kind !== 'espelho' && html`<${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>`}
+      ${c.kind === 'espelho' && html`<${Btn} sz="sm" on=${() => { const v = prompt('Valor mensal aproximado (para o MRR e relatórios), em R$:', c.value || ''); if (v != null) store.put('contracts', Object.assign({}, c, { value: n0(v) })); }}>Valor mensal aprox.</${Btn}>`}
+      ${(c.kind === 'recorrente' || c.kind === 'espelho') && !c.endDate && html`<${Btn} sz="sm" cls="danger" on=${() => setEnd(true)}>Registrar rescisão</${Btn}>`}
       ${c.endDate && html`<${Btn} sz="sm" on=${() => store.put('contracts', Object.assign({}, c, { endDate: '', noticeDate: '' }))}>Reativar</${Btn}>`}
       <span style=${{ flex: 1 }}/><${Btn} sz="sm" v="ghost" cls="danger" icon="trash" on=${() => { onClose(); delWithUndo('contracts', c.id, 'Contrato'); }}>Excluir</${Btn}></div></div>`;
   return html`<${Drawer} onClose=${onClose} head=${head}>
@@ -2159,7 +2175,7 @@ function ContractsPage({ nav }) {
     <div class="card flush tbl-wrap"><table class="tbl"><thead><tr><th>Cliente</th><th>Produto</th><th>Condição</th><th>Pagamento</th><th>Início</th><th class="r">Valor</th></tr></thead><tbody>
       ${list.map(({ c, st }) => html`<tr key=${c.id} class="click" onClick=${() => nav.contract(c.id)}>
         <td><div class="b">${c.clientName}</div>${c.endDate && html`<div class="xs" style=${{ color: 'var(--warn)' }}>termina ${fdate(c.endDate)}</div>`}</td>
-        <td class="small">${prodName(S, c.productId)}</td><td class="small">${c.kind === 'recorrente' ? 'Mensal · dia ' + c.payDay : (c.installments > 1 ? c.installments + 'x' : 'À vista')}${c.setupValue > 0 ? ' + setup' : ''}</td>
+        <td class="small">${prodName(S, c.productId)}</td><td class="small">${c.kind === 'espelho' ? 'Espelho do Asaas' : c.kind === 'recorrente' ? 'Mensal · dia ' + c.payDay : (c.installments > 1 ? c.installments + 'x' : 'À vista')}${c.setupValue > 0 ? ' + setup' : ''}</td>
         <td class="small">${c.billing === 'asaas' ? 'Asaas' : c.billing === 'exterior' ? '🌎 ' + c.currency : methodL(c.method)}</td><td class="small">${fdate(c.startDate)}</td><td class="r num b">${cv(c, c.value)}${c.kind === 'recorrente' ? html`<span class="faint xs">/mês</span>` : ''}</td></tr>`)}
     </tbody></table>${!list.length && html`<${Empty} t="Nenhum contrato aqui" s=""/>`}</div>
   </div>`;
@@ -2318,6 +2334,7 @@ function suggestLinks(db, inv) {
   const linked = linkedAsaasIds(db); const refs = new Set(inv.map(i => i.id));
   const free = inv.filter(i => !i.asaas && i.status !== 'cancelado' && !(db.payments[i.id] && db.payments[i.id].asaasId));
   const used = new Set(); const out = [];
+  const perCustMonth = {}; vals(db.asaas).filter(a => !a.deleted && !linked.has(a.id) && !refs.has(a.externalReference)).forEach(a => { const k = a.customer + '|' + ymOf(a.originalDueDate || a.dueDate); perCustMonth[k] = (perCustMonth[k] || 0) + 1; });
   vals(db.asaas).filter(a => !a.deleted && !linked.has(a.id) && !refs.has(a.externalReference))
     .sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''))
     .forEach(a => {
@@ -2330,12 +2347,13 @@ function suggestLinks(db, inv) {
         const idMatch = cl.asaasId && cl.asaasId === a.customer;
         const docMatch = onlyDigits(cl.document) && onlyDigits(cl.document) === onlyDigits(a.customerDoc);
         const sameValue = Math.abs(Number(a.value) - i.amount) <= Math.max(1, i.amount * 0.02);
-        // cliente já identificado: vincula pelo mês mesmo com valor diferente (o Asaas manda); só pelo nome exige valor igual
-        if (!sameValue && !((idMatch || docMatch) && i.kind === 'mensal')) return;
+        // valor diferente: só sugere (nunca automático) e só se for a única cobrança desse cliente no mês
+        const near = Math.abs(Number(a.value) - i.amount) <= i.amount * 0.3; // reajuste/desconto, não outro serviço
+        if (!sameValue && !((idMatch || docMatch) && near && i.kind === 'mensal' && (perCustMonth[a.customer + '|' + am] || 0) === 1)) return;
         const ns = Math.max(nameScore(a.customerName, i.clientName), nameScore(a.customerName, cl.contact), nameScore(a.description, i.clientName) * 0.8);
         if (!idMatch && !docMatch && ns < 0.6) return;
         const score = (idMatch ? 3 : 0) + (docMatch ? 3 : 0) + ns + (sameValue ? 1 : 0) + (Math.abs(Number(a.value) - i.amount) < 0.01 ? 0.5 : 0);
-        if (!best || score > best.score) best = { a, i, score, strong: !!(idMatch || docMatch), why: (idMatch ? 'mesmo cliente no Asaas' : docMatch ? 'mesmo CPF/CNPJ' : 'nome parecido') + (sameValue ? '' : ' · valor diferente (vale o do Asaas)') };
+        if (!best || score > best.score) best = { a, i, score, strong: !!(idMatch || docMatch) && sameValue, why: (idMatch ? 'mesmo cliente no Asaas' : docMatch ? 'mesmo CPF/CNPJ' : 'nome parecido') + (sameValue ? '' : ' · valor diferente (vale o do Asaas)') };
       });
       if (best) { used.add(best.i.id); out.push(best); }
     });
@@ -2476,7 +2494,8 @@ function CobrancasPage({ nav }) {
           <div class="num b">${x.i.amountOrig != null ? moneyCur(x.i.amountOrig, x.i.currency) : money2(x.i.amount)}</div>`
         : html`<div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${pad(parseD(x.a.dueDate).getDate())}</div><div class="xs faint">${MSHORT[parseD(x.a.dueDate).getMonth()]}</div></div>
           <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${x.a.customerName || x.a.description || 'Cobrança ' + x.a.id}</div><div class="xs faint">${ASAAS_LABEL[x.a.status] || x.a.status} · ${x.a.billingType || ''}</div></div><div class="num b">${money2(x.a.value)}</div>
-          ${x.a.invoiceUrl && html`<${Btn} sz="xs" v="ghost" icon="external" href=${x.a.invoiceUrl}/>`}`}
+          ${x.a.invoiceUrl && html`<${Btn} sz="xs" v="ghost" icon="external" href=${x.a.invoiceUrl}/>`}
+          <${Btn} sz="xs" on=${() => createMirror(x.a)} title="Cria um contrato que mostra todas as cobranças deste cliente do Asaas em Recebíveis">Acompanhar este cliente</${Btn}>`}
         <${Actions} x=${x}/>
         <${Btn} sz="xs" v="ghost" on=${() => ignore(x)} title="Ocultar este alerta">Ignorar</${Btn}>
       </div>`)}
@@ -2564,6 +2583,19 @@ async function updateFx(force) {
     store.setSettings({ fx, fxUpdatedAt: stamp() });
     return fx;
   } catch (e) { if (force) toast('Não consegui buscar a cotação agora (' + e.message + '). Os valores atuais continuam valendo.'); return null; }
+}
+
+/* ---------- contrato espelho: acompanha todas as cobranças de um cliente do Asaas ---------- */
+function createMirror(a) {
+  const db = store.data;
+  if (vals(db.contracts).some(c => c.kind === 'espelho' && c.asaasCustomer === a.customer)) return toast('Este cliente do Asaas já é acompanhado.');
+  const name = prompt('Nome do cliente no Visions OS:', a.customerName || '');
+  if (!name) return;
+  let cl = vals(db.clients).find(c => (c.name || '').trim().toLowerCase() === name.trim().toLowerCase());
+  cl = store.put('clients', Object.assign({}, cl || { name: name.trim(), since: a.dueDate }, { asaasId: a.customer, document: (cl && cl.document) || a.customerDoc || '' }));
+  const first = vals(db.asaas).filter(x => x.customer === a.customer).map(x => x.dueDate).sort()[0] || a.dueDate;
+  store.put('contracts', { clientId: cl.id, clientName: cl.name, kind: 'espelho', billing: 'asaas', asaasCustomer: a.customer, value: 0, startDate: first, productId: '', notes: 'Espelho do Asaas', ownerId: CURRENT_USER.id });
+  toast(cl.name + ': todas as cobranças do Asaas agora aparecem em Recebíveis.');
 }
 
 /* ---- 50-metas.js ---- */

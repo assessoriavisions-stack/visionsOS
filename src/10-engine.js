@@ -11,13 +11,14 @@ function contractStatus(c, ref) {
     if (c.canceled) return 'encerrado';
     return 'projeto';
   }
+  if (c.kind === 'espelho') return c.endDate && c.endDate < t ? 'encerrado' : 'ativo';
   if (c.endDate && c.endDate < t) return 'encerrado';
   if (c.endDate) return 'aviso';
   return 'ativo';
 }
 const brlValue = c => (Number(c.value) || 0) * fxRate(c);
 const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
-const contractActiveIn = (c, ym) => c.kind === 'recorrente' && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
+const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].
 const ASAAS_PAID = ['RECEIVED', 'CONFIRMED', 'RECEIVED_IN_CASH', 'DUNNING_RECEIVED'];
@@ -32,12 +33,17 @@ function asaasIndex(db) {
   vals(db.payments).forEach(p => { if (p.asaasId && db.asaas[p.asaasId]) m[p.id] = db.asaas[p.asaasId]; }); // vínculos manuais/automáticos
   return m;
 }
-const linkedAsaasIds = db => { const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId)); return s; };
+const mirrorCustomers = db => new Set(vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).map(c => c.asaasCustomer));
+const linkedAsaasIds = db => {
+  const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId));
+  const mc = mirrorCustomers(db); vals(db.asaas).forEach(a => { if (mc.has(a.customer)) s.add(a.id); }); // contratos espelho
+  return s;
+};
 function invoicesOf(c, payments, horizonYm, ax) {
   const out = [];
   const pay = id => (payments && payments[id]) || null;
   const rate = fxRate(c);
-  const billing = c.billing || 'manual';
+  const billing = c.kind === 'espelho' ? 'asaas' : (c.billing || 'manual');
   const mk = (id, kind, label, due, amountOrig, extra) => {
     const p = pay(id);
     const a = ax && ax[id] && (billing === 'asaas' || (p && p.asaasId)) ? ax[id] : null;
@@ -66,6 +72,10 @@ function invoicesOf(c, payments, horizonYm, ax) {
     const base = Math.floor((total / n) * 100) / 100; const arr = Array(n).fill(base);
     arr[n - 1] = Math.round((total - base * (n - 1)) * 100) / 100; return arr;
   };
+  if (c.kind === 'espelho') {
+    (c._mirror || []).forEach((a, i) => mk(c.id + '-a' + a.id, 'mensal', (a.description && a.description.length < 40 ? a.description : 'Cobrança') + ' ' + fdateShort(a.dueDate), a.dueDate, Number(a.value) / (fxRate(c) || 1), { n: i + 1 }));
+    return out;
+  }
   if (c.kind === 'recorrente') {
     const first = c.firstDue || c.startDate;
     if (first) {
@@ -94,6 +104,11 @@ function invoicesOf(c, payments, horizonYm, ax) {
 }
 function allInvoices(db, horizonYm) {
   const ax = asaasIndex(db);
+  // contratos "espelho do Asaas": cada cobrança do cliente no Asaas vira um recebível
+  vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).forEach(c => {
+    c._mirror = vals(db.asaas).filter(a => a.customer === c.asaasCustomer && !a.deleted).sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''));
+    c._mirror.forEach(a => (ax[c.id + '-a' + a.id] = a));
+  });
   return vals(db.contracts).flatMap(c => invoicesOf(c, db.payments, horizonYm, ax));
 }
 
