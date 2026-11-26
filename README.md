@@ -1,0 +1,105 @@
+# Visions OS 2 — Comercial · Financeiro · Metas
+
+Sistema de gestão da Visions focado em **performance**: prospecção, CRM com cadências de follow-up, financeiro com parcelamento e visão **competência × caixa**, metas e calculadoras de CAC/prospecção.
+
+É um **arquivo único** (`index.html`), igual ao Visions OS atual. Pode ser aberto direto no navegador ou publicado em qualquer hospedagem estática (Firebase Hosting, Netlify, Vercel, GitHub Pages).
+
+---
+
+## 1. O que existe hoje no Visions OS atual
+
+Fiz o levantamento pelo código do arquivo `visions-os-com-ia.html`. Não deu para ler os dados do Firebase daqui (a rede deste ambiente bloqueia), então o "efetivamente usa" abaixo vem do código e do que você descreveu.
+
+| Área | Módulos | Situação |
+|---|---|---|
+| **Operação de conteúdo** | Pipeline de clientes (kick-off → gestão), workspace por cliente (estratégia, briefing, posts com etapas e aprovação, roteiros, produção, site, checklist, mapas, créditos), Interno (overview semanal, cronograma, pendências, insights, relatório, tráfego, campanhas, membros) | **Continua no sistema atual.** Não foi alterado. |
+| **Portal do cliente** | Acesso por código: diagnóstico, cronograma, to-dos, stories com IA, tráfego, treinamento, CRM do cliente, fidelidade | **Continua no sistema atual.** |
+| **Financeiro** | Contratos (MRR, aviso de 30 dias), custos, projeção mensal, anual, calculadora de preço | **Substituído aqui.** Não tinha parcelamento, não separava receita de caixa e não registrava pagamentos. |
+| **Comercial** | Funil do mês preenchido à mão (investimento, leads, reuniões), CAC/LTV, metas × realizado, kanban de leads com nota e próxima ação | **Substituído aqui.** Era tudo no total do mês, sem canal, sem cadência e sem prospecção diária. |
+
+**Decisão:** o Visions OS 2 cobre a parte de **gestão do negócio** (comercial, financeiro, metas). A parte de **entrega** (conteúdo, portal do cliente) continua no sistema atual. Os dois usam o mesmo Firebase, mas o novo grava em chaves próprias (`vos7_*`), então **um não interfere no outro**.
+
+---
+
+## 2. O que o novo sistema faz
+
+### Hoje (tela inicial)
+Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script pronto e botão de WhatsApp), contador de abordagens com +1, reuniões, cobranças atrasadas ou vencendo, e o ritmo das metas do mês.
+
+### Comercial
+- **Pipeline (CRM)** em kanban ou lista: arrastar e soltar, filtros por canal, produto e responsável. As etapas são Novo lead → Em contato → Conectado → Reunião agendada → Reunião realizada → Proposta → Negociação → Ganho/Perdido.
+- **Ficha do lead**: próximo passo da cadência com script, histórico de interações (WhatsApp, ligação, direct, e-mail, áudio, reunião…), motivo de perda e reativação automática em 90 dias.
+- **Cadências de follow-up**: 4 prontas e editáveis (Outbound frio 7 toques/14 dias, Lead de tráfego *speed to lead*, Pós-reunião/Proposta, Reativação 90 dias). O sistema agenda cada passo, pula fim de semana e mostra no dia certo. "Respondeu!" move o lead para Conectado e para a cadência.
+- **Regra de ouro**: nenhum lead aberto fica sem próxima ação. Os que estão sem ação aparecem destacados.
+- **Prospecção diária**: contadores por canal (abordagens, respostas, conversas, follow-ups), meta por dia, semana e mapa de consistência do mês. Concluir passos de cadência já soma nos contadores.
+- **Análise comercial**: funil do mês, tabela **por canal de aquisição** (abordagens, leads, reuniões, vendas, conversão, MRR, investimento, CPL e CAC por canal), motivos de perda, desempenho por pessoa e os últimos 6 meses.
+
+### Financeiro
+- **Venda / contrato** com:
+  - **Recorrente** (mensalidade, dia de vencimento, fidelidade) e **setup parcelado** opcional;
+  - **Projeto / valor fechado** (ex.: Consultoria 360) **parcelado em N vezes**;
+  - forma de pagamento (Pix, boleto, cartão com taxa, transferência) e prévia das cobranças.
+- **Recebíveis**: todas as mensalidades e parcelas geradas automaticamente. Um clique em **Recebido** dá baixa, e dá para ajustar valor e data, cancelar cobrança ou desfazer. Filtros: atrasados, vencem no mês, próximos 30 dias, recebidos.
+- **Competência × Caixa**:
+  - *Receita (competência)* = mensalidades do mês + projetos e setups vendidos no mês. Em Configurações dá para reconhecer projeto pelas parcelas, se preferir.
+  - *Caixa* = o que efetivamente entrou no mês, pelas baixas.
+  - A tela explica a diferença. Exemplo: uma Consultoria 360 de R$ 6.000 em 6x gera R$ 6.000 de receita e R$ 1.000 de caixa no mês da venda.
+- **Fluxo de caixa projetado** (6 meses), **inadimplência** e **MRR**: novo, churn e líquido.
+- **Despesas**: fixas mensais (repetem sozinhas e podem "pular mês"), únicas ou **parceladas**, por categoria. As categorias marcadas como "entra no CAC" (comercial, marketing próprio) somam no CAC completo.
+- **Rescisão** com aviso prévio configurável: cobra até o fim do aviso e conta o churn no mês do aviso.
+- **Clientes**: MRR, tempo de casa, LTV realizado (tudo que já pagou) e valor em atraso.
+
+### Metas e calculadoras
+- **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
+- **Calculadora de metas & CAC** (funil reverso, no estilo Visions Tracking): parte da meta de novo MRR e calcula vendas, reuniões, leads e investimento. Mostra CAC projetado × CAC máximo (LTV ÷ 3), LTV:CAC, payback, custo por reunião e diagnóstico. O botão "Usar meus números reais" preenche com os últimos 90 dias, e "Salvar metas" grava direto nas metas do mês.
+- **Calculadora de prospecção** por canal, igual à do seu print: ticket, meta, prospecções/dia, dias úteis e as 5 taxas. Mostra o funil, a quantidade de prospecções por dia para bater a meta e o **gargalo** (a etapa mais abaixo da referência). O botão **"Definir N/dia como meta deste canal"** alimenta a prospecção diária.
+
+### Usabilidade
+- Menu lateral organizado; no celular, barra inferior e menu.
+- **Ctrl+K** (ou `/`): busca leads e contratos, abre páginas e cria itens.
+- Atalhos: **N** = novo lead, **V** = nova venda.
+- Botão **+** flutuante para ações rápidas.
+- "Desfazer" ao excluir ou dar baixa.
+- Tema claro/escuro.
+- **Funciona offline**: salva no navegador e sincroniza quando a conexão volta. O indicador fica no canto do menu.
+
+---
+
+## 3. Como começar
+
+1. Abra o `index.html` (ou publique-o).
+2. Entre com **a mesma senha do Visions OS atual** e escolha seu nome.
+3. Vá em **Configurações → Importar dados → "Ler dados do banco atual"**. O sistema traz contratos, despesas, leads comerciais, metas e investimento em tráfego.
+   - O sistema antigo **não é alterado** (só leitura).
+   - Pode repetir a importação sem duplicar.
+   - Por padrão, as mensalidades anteriores ao mês atual são consideradas pagas, porque o sistema antigo não registrava pagamentos.
+   - Depois, revise o produto e a forma de pagamento dos contratos e as categorias das despesas.
+4. Em **Configurações**, ajuste produtos e preços, canais, equipe, margem bruta, taxa do cartão e aviso prévio.
+5. Use a **Calculadora de prospecção** para definir a meta diária de cada canal e a **Calculadora de metas & CAC** para salvar as metas do mês.
+
+Para testar sem mexer no banco: abra `index.html?local=1`. Nesse modo os dados ficam só no navegador (senha `visions2025`).
+
+---
+
+## 4. Para quem for mexer no código
+
+```
+src/
+  index.template.html   casca HTML
+  styles.css            design system (tokens claro/escuro, componentes)
+  00-core.js            utilitários, datas, storage (Firebase + cache + fila offline), padrões
+  10-engine.js          cálculos puros: cobranças/parcelas, competência × caixa, funil, CAC, calculadoras
+  20-ui.js              componentes (campos, modais, gráficos SVG com tooltip)
+  30-comercial.js       pipeline, ficha do lead, cadências, follow-ups, prospecção, análise
+  40-financeiro.js      visão geral, recebíveis, contratos, despesas, clientes
+  50-metas.js           metas e calculadoras
+  60-app.js             Hoje, configurações, importação, login, navegação
+build.js                gera o index.html único:  node build.js
+```
+
+Stack: React 18 + [htm](https://github.com/developit/htm) via CDN, sem etapa de compilação além do `build.js`.
+
+**Dados** (Firebase RTDB, em `/vos/vos7_<coleção>/<id>`): `deals`, `cadences`, `prospect` (contadores por dia/pessoa), `spend` (investimento por canal/mês), `goals`, `clients`, `contracts`, `payments` (baixas; as cobranças são geradas dos contratos com IDs determinísticos) e `costs`, além de `vos7_settings`. Cada item é gravado separadamente, então duas pessoas editando ao mesmo tempo não apagam o trabalho uma da outra.
+
+### ⚠️ Segurança do Firebase
+O banco atual (`visions-os2-default-rtdb`) é acessado **sem autenticação**: quem tiver a URL consegue ler e gravar, inclusive dados de clientes e financeiros. A senha do sistema só protege a tela, não o banco. Recomendo, como próximo passo, ativar o Firebase Authentication e travar as regras do Realtime Database.
