@@ -42,8 +42,9 @@ function invoicesOf(c, payments, horizonYm, ax) {
     const p = pay(id);
     const a = ax && ax[id] && (billing === 'asaas' || (p && p.asaasId)) ? ax[id] : null;
     const amount = Math.round(amountOrig * rate * 100) / 100;
-    const amt = p && p.amount != null && p.amount !== '' ? Number(p.amount) : amount;
-    const d = (p && p.due) || due;
+    const live = a && !a.deleted ? a : null; // cobrança vinculada ao Asaas: valor e vencimento de lá
+    const amt = p && p.amount != null && p.amount !== '' ? Number(p.amount) : live && live.value != null ? Number(live.value) : amount;
+    const d = (p && p.due) || (live && live.dueDate) || due;
     let status = d < today() ? 'atrasado' : 'pendente', paidAt = null, paidAmount = 0, source = 'local';
     if (p && p.status === 'pago') { status = 'pago'; paidAt = p.paidAt; paidAmount = Number(p.paidAmount != null ? p.paidAmount : amt); }
     else if (p && p.status === 'cancelado') status = 'cancelado';
@@ -52,12 +53,13 @@ function invoicesOf(c, payments, horizonYm, ax) {
       if (ASAAS_PAID.includes(a.status)) { status = 'pago'; paidAt = a.paymentDate || a.clientPaymentDate || a.confirmedDate || a.dueDate; paidAmount = Number(a.netValue != null ? a.netValue : a.value); }
       else if (ASAAS_PROBLEM.includes(a.status)) status = 'problema';
       else if (a.status === 'OVERDUE') status = 'atrasado';
+      else if (a.status === 'PENDING') status = 'pendente';
     }
     out.push(Object.assign({
       id, contractId: c.id, clientId: c.clientId, clientName: c.clientName, productId: c.productId, method: c.method || 'pix', billing,
       currency: c.currency || 'BRL', amountOrig: rate !== 1 ? amountOrig : null,
       kind, label, due: d, ym: ymOf(d), origYm: ymOf(due), amount: amt, status, source,
-      paidAt, paidAmount, note: p && p.note, reminders: (p && p.reminders) || [], asaas: a
+      paidAt, paidAmount, note: p && p.note, reminders: (p && p.reminders) || [], asaas: a, contractAmount: amount
     }, extra || {}));
   };
   const splitAmounts = (total, n) => {
@@ -95,8 +97,7 @@ function allInvoices(db, horizonYm) {
 /* ---------- conciliação: encontra erros de cobrança ---------- */
 const ISSUE_TYPES = {
   nao_emitida: { l: 'Cobrança não emitida no Asaas', t: 'warn', h: 'Ainda não existe no Asaas. Se o cliente já tem assinatura lá, clique em Sincronizar: o sistema vincula sozinho.' },
-  valor: { l: 'Valor diferente no Asaas', t: 'bad', h: 'O valor da cobrança no Asaas não bate com o contrato.' },
-  vencimento: { l: 'Vencimento diferente', t: 'info', h: 'A data de vencimento no Asaas é diferente da prevista no contrato.' },
+  valor: { l: 'Contrato com valor diferente do Asaas', t: 'info', h: 'O sistema já usa o valor do Asaas. Se o preço mudou de vez, atualize o contrato.' },
   pago_aqui_aberto_la: { l: 'Pago aqui, em aberto no Asaas', t: 'bad', h: 'Você deu baixa manual, mas o Asaas ainda vai cobrar o cliente. Marque como "recebido em dinheiro" no Asaas ou cancele lá.' },
   problema: { l: 'Estorno / chargeback', t: 'bad', h: 'O pagamento foi estornado ou contestado.' },
   excluida: { l: 'Excluída no Asaas', t: 'warn', h: 'A cobrança foi removida no Asaas mas segue em aberto aqui.' },
@@ -114,10 +115,9 @@ function reconcile(db, inv) {
     if (i.billing === 'asaas') {
       if (!a && i.status !== 'pago' && i.due <= emitUntil) {
         const cl = db.clients[i.clientId];
-        out.push({ type: cl && onlyDigits(cl.document) ? 'nao_emitida' : 'sem_documento', i });
+        out.push({ type: cl && (onlyDigits(cl.document) || cl.asaasId) ? 'nao_emitida' : 'sem_documento', i });
       }
-      if (a && !a.deleted && Math.abs(Number(a.value) - i.amount) > 0.01 && !ASAAS_PAID.includes(a.status)) out.push({ type: 'valor', i, extra: 'Asaas: ' + money2(a.value) + ' · contrato: ' + money2(i.amount) });
-      if (a && !a.deleted && a.dueDate && a.dueDate !== i.due && !ASAAS_PAID.includes(a.status)) out.push({ type: 'vencimento', i, extra: 'Asaas: ' + fdate(a.dueDate) + ' · contrato: ' + fdate(i.due) });
+      if (a && !a.deleted && Math.abs(Number(a.value) - i.contractAmount) > 0.01 && i.origYm >= ymNow()) out.push({ type: 'valor', i, extra: 'Asaas: ' + money2(a.value) + ' · contrato: ' + money2(i.contractAmount) });
       if (a && !a.deleted && p && p.status === 'pago' && (a.status === 'PENDING' || a.status === 'OVERDUE')) out.push({ type: 'pago_aqui_aberto_la', i });
       if (a && ASAAS_PROBLEM.includes(a.status)) out.push({ type: 'problema', i, extra: ASAAS_LABEL[a.status] || a.status });
       if (a && a.deleted && i.status !== 'pago') out.push({ type: 'excluida', i });

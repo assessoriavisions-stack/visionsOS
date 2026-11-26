@@ -19,7 +19,7 @@ const saveAsaasSnap = s => { if (s && s.id) store.restore('asaas', Object.assign
 async function emitInvoice(i) {
   const db = { ...store.data, S: settingsOf(store.data) };
   const c = db.contracts[i.contractId]; const cl = db.clients[i.clientId] || {};
-  if (!onlyDigits(cl.document)) throw new Error(i.clientName + ': cadastre o CPF/CNPJ do cliente (Clientes → editar).');
+  if (!onlyDigits(cl.document) && !cl.asaasId) throw new Error(i.clientName + ': cadastre o CPF/CNPJ do cliente (Clientes → editar).');
   let customer = cl.asaasId;
   if (!customer) {
     const r = await asaasCall('findOrCreateCustomer', { name: cl.name || i.clientName, cpfCnpj: cl.document, email: cl.email, phone: cl.phone, externalReference: cl.id });
@@ -65,14 +65,16 @@ function suggestLinks(db, inv) {
       free.forEach(i => {
         if (used.has(i.id)) return;
         if (i.origYm !== am && i.ym !== am) return;
-        if (Math.abs(Number(a.value) - i.amount) > Math.max(1, i.amount * 0.02)) return;
         const cl = db.clients[i.clientId] || {};
         const idMatch = cl.asaasId && cl.asaasId === a.customer;
         const docMatch = onlyDigits(cl.document) && onlyDigits(cl.document) === onlyDigits(a.customerDoc);
+        const sameValue = Math.abs(Number(a.value) - i.amount) <= Math.max(1, i.amount * 0.02);
+        // cliente já identificado: vincula pelo mês mesmo com valor diferente (o Asaas manda); só pelo nome exige valor igual
+        if (!sameValue && !((idMatch || docMatch) && i.kind === 'mensal')) return;
         const ns = Math.max(nameScore(a.customerName, i.clientName), nameScore(a.customerName, cl.contact), nameScore(a.description, i.clientName) * 0.8);
         if (!idMatch && !docMatch && ns < 0.6) return;
-        const score = (idMatch ? 3 : 0) + (docMatch ? 3 : 0) + ns + (Math.abs(Number(a.value) - i.amount) < 0.01 ? 0.5 : 0);
-        if (!best || score > best.score) best = { a, i, score, strong: !!(idMatch || docMatch), why: idMatch ? 'mesmo cliente no Asaas' : docMatch ? 'mesmo CPF/CNPJ' : 'nome parecido' };
+        const score = (idMatch ? 3 : 0) + (docMatch ? 3 : 0) + ns + (sameValue ? 1 : 0) + (Math.abs(Number(a.value) - i.amount) < 0.01 ? 0.5 : 0);
+        if (!best || score > best.score) best = { a, i, score, strong: !!(idMatch || docMatch), why: (idMatch ? 'mesmo cliente no Asaas' : docMatch ? 'mesmo CPF/CNPJ' : 'nome parecido') + (sameValue ? '' : ' · valor diferente (vale o do Asaas)') };
       });
       if (best) { used.add(best.i.id); out.push(best); }
     });
@@ -154,7 +156,7 @@ function CobrancasPage({ nav }) {
   const issues = reconcile(db, inv).filter(x => !hide.includes(x.type + ':' + (x.i ? x.i.id : x.a.id)));
   const ready = asaasReady(S);
   const by = groupBy(issues, x => x.type);
-  const order = ['problema', 'pago_aqui_aberto_la', 'valor', 'excluida', 'sem_documento', 'nao_emitida', 'atrasada', 'vencimento', 'orfa'];
+  const order = ['problema', 'pago_aqui_aberto_la', 'excluida', 'sem_documento', 'nao_emitida', 'atrasada', 'valor', 'orfa'];
   const toEmit = (by.nao_emitida || []).map(x => x.i);
   const sugg = useMemo(() => suggestLinks(db, inv), [inv, db.asaas, db.clients]);
   const [bulk, setBulk] = useState(null);
@@ -178,8 +180,7 @@ function CobrancasPage({ nav }) {
     const i = x.i;
     if (x.type === 'nao_emitida') return ready ? html`<${Btn} sz="xs" v="pri" on=${() => act(() => emitInvoice(i), 'Emitida no Asaas.')}>Emitir agora</${Btn}>` : null;
     if (x.type === 'sem_documento') return html`<${Btn} sz="xs" on=${() => nav.go('clientes')}>Cadastrar CPF/CNPJ</${Btn}>`;
-    if (x.type === 'valor' && ready) return html`<${Btn} sz="xs" on=${() => act(() => asaasCall('updatePayment', { id: i.asaas.id, value: i.amount }).then(saveAsaasSnap), 'Valor corrigido no Asaas.')}>Corrigir no Asaas</${Btn}>`;
-    if (x.type === 'vencimento' && ready) return html`<${Btn} sz="xs" v="ghost" on=${() => act(() => asaasCall('updatePayment', { id: i.asaas.id, dueDate: i.due < today() ? today() : i.due }).then(saveAsaasSnap), 'Vencimento ajustado no Asaas.')}>Ajustar no Asaas</${Btn}>`;
+    if (x.type === 'valor') { const c = db.contracts[i.contractId]; return c && i.kind === 'mensal' && (!c.currency || c.currency === 'BRL') ? html`<${Btn} sz="xs" on=${() => { store.put('contracts', Object.assign({}, c, { value: Number(i.asaas.value) })); toast('Contrato atualizado para ' + money2(i.asaas.value) + '/mês.'); }}>Atualizar contrato para ${money2(i.asaas.value)}</${Btn}>` : null; }
     if (x.type === 'pago_aqui_aberto_la' && ready) return html`<${Btn} sz="xs" v="pri" on=${() => act(() => asaasCall('receiveInCash', { id: i.asaas.id, paymentDate: i.paidAt || today(), value: i.paidAmount || i.amount }).then(saveAsaasSnap), 'Baixa registrada no Asaas — o cliente não será mais cobrado.')}>Dar baixa no Asaas</${Btn}>`;
     if (x.type === 'atrasada' && i.billing !== 'asaas') return html`<${InvActions} i=${i}/>`;
     return null;
@@ -256,7 +257,11 @@ function AsaasSettings() {
     </div>
     <div class="card span3" style=${{ gridColumn: '1/-1' }}><div class="card-h"><h3>Clientes do exterior</h3></div>
       <p class="small muted" style=${{ marginTop: 0 }}>O Asaas não cobra clientes de fora. Para eles, no contrato escolha <b>Cobrança: Exterior</b>, a moeda e o link de pagamento (Wise, PayPal, Stripe…). O sistema converte para reais nos relatórios pela cotação abaixo, mostra os vencimentos em Cobranças e gera lembretes prontos em português, inglês ou espanhol. Ao dar baixa, informe o valor que caiu em reais (com câmbio e taxas).</p>
-      <div class="form c3">${['USD', 'EUR', 'GBP'].map(k => html`<${Input} key=${k} label=${'Cotação ' + k + ' (R$)'} type="number" v=${S.fx[k]} on=${v => store.setSettings({ fx: Object.assign({}, S.fx, { [k]: n0(v) }) })}/>`)}</div>
+      <div class="row wrap mb12"><${Toggle} v=${S.fxAuto !== false} on=${v => store.setSettings({ fxAuto: v })} label="Atualizar a cotação automaticamente (cotação comercial do dia)"/>
+        <${Btn} sz="sm" icon="repeat" on=${async () => { const r = await updateFx(true); if (r) toast('Cotação atualizada: US$ 1 = ' + money2(r.USD)); }}>Atualizar agora</${Btn}>
+        <span class="xs faint">${S.fxUpdatedAt ? 'Atualizada em ' + new Date(S.fxUpdatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'ainda não atualizada'}</span></div>
+      <div class="form c3">${['USD', 'EUR', 'GBP'].map(k => html`<${Input} key=${k} label=${'Cotação ' + k + ' (R$)'} type="number" v=${S.fx[k]} on=${v => store.setSettings({ fx: Object.assign({}, S.fx, { [k]: n0(v) }), fxAuto: false })} hint=${k === 'USD' ? 'Editar à mão desliga a atualização automática' : ''}/>`)}</div>
+      <div class="xs faint mt8">A cotação serve para estimar em reais o que ainda vai receber. Na baixa, vale o que realmente caiu na conta. Para um contrato com câmbio combinado, use "Cotação fixa" no próprio contrato.</div>
     </div>
   </div>`;
 }
@@ -282,4 +287,20 @@ function BulkPayModal({ list, onClose }) {
       <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${i.clientName}</div><div class="xs faint">${i.label} · venceu ${fdate(i.due)}</div></div>
       <b class="num">${money2(i.amount)}</b></label>`)}</div>
   </${Modal}>`;
+}
+
+/* ---------- cotação automática (USD, EUR, GBP → BRL) ---------- */
+async function updateFx(force) {
+  const S = settingsOf(store.data);
+  if (S.fxAuto === false && !force) return null;
+  if (!force && S.fxUpdatedAt && Date.now() - new Date(S.fxUpdatedAt).getTime() < 6 * 3600e3) return null;
+  try {
+    const r = await fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL,GBP-BRL', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    const fx = Object.assign({}, S.fx);
+    [['USD', 'USDBRL'], ['EUR', 'EURBRL'], ['GBP', 'GBPBRL']].forEach(([k, q]) => { const v = j[q] && parseFloat(j[q].bid); if (v > 0) fx[k] = Math.round(v * 10000) / 10000; });
+    store.setSettings({ fx, fxUpdatedAt: stamp() });
+    return fx;
+  } catch (e) { if (force) toast('Não consegui buscar a cotação agora (' + e.message + '). Os valores atuais continuam valendo.'); return null; }
 }

@@ -210,7 +210,7 @@ function ContractForm({ init, onClose, onSaved, deal }) {
         <${Select} label="Forma no Asaas" v=${f.asaasBilling} on=${F('asaasBilling')} ph=${'Padrão (' + ({ UNDEFINED: 'cliente escolhe', PIX: 'Pix', BOLETO: 'boleto', CREDIT_CARD: 'cartão' }[S.asaas.billingType] || '') + ')'} opts=${[{ v: 'UNDEFINED', l: 'Cliente escolhe' }, { v: 'PIX', l: 'Pix' }, { v: 'BOLETO', l: 'Boleto' }, { v: 'CREDIT_CARD', l: 'Cartão de crédito' }]}/>`}
       ${f.billing === 'exterior' && html`<div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}><div class="form c3">
         <${Select} label="Moeda" v=${f.currency} on=${F('currency')} opts=${['USD', 'EUR', 'GBP'].map(c => ({ v: c, l: c }))}/>
-        <${Input} label="Cotação fixa (opcional)" type="number" v=${f.fxRate} on=${F('fxRate')} ph=${'padrão ' + num(S.fx[f.currency] || 0, 2)} hint="Vazio = usa a cotação das Configurações"/>
+        <${Input} label="Cotação fixa (opcional)" type="number" v=${f.fxRate} on=${F('fxRate')} ph=${'hoje ' + num(S.fx[f.currency] || 0, 2)} hint=${'Vazio = cotação do dia (' + (CURRENCIES[f.currency] || f.currency) + ' 1 = ' + money2(S.fx[f.currency] || 0) + ')'}/>
         <${Select} label="Idioma do lembrete" v=${f.reminderLang} on=${F('reminderLang')} opts=${[{ v: 'en', l: 'English' }, { v: 'es', l: 'Español' }, { v: 'pt', l: 'Português' }]}/>
         <${Input} cls="span2" label="Link de pagamento" v=${f.payLink} on=${F('payLink')} ph="Wise, PayPal, Stripe…"/>
         <${Input} label="E-mail do financeiro" v=${f.email} on=${F('email')}/>

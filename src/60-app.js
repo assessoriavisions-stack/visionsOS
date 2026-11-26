@@ -333,6 +333,7 @@ function Shell({ onLogout }) {
     };
     window.addEventListener('keydown', k); return () => window.removeEventListener('keydown', k);
   }, []);
+  useEffect(() => { updateFx(false); }, []);
   const fu = followupBuckets(db, CURRENT_USER.id || null);
   const fuN = fu.atrasado.length + fu.hoje.length;
   const invNow = useMemo(() => allInvoices(db, addMonths(ymNow(), 1)), [db.contracts, db.payments, db.asaas, db.settings]);
