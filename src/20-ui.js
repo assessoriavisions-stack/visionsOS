@@ -205,3 +205,27 @@ function Avatar({ name, size = 30 }) {
 function copyText(t) {
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Copiado!'), () => { window.prompt('Copie o texto:', t); });
 }
+
+/* ---------- gráfico de linhas (eixo único, base zero) ---------- */
+function LineChart({ labels, series, h = 200, fmt }) {
+  const W = 640, H = h, padL = 54, padB = 24, padT = 12, padR = 14;
+  const maxV = Math.max(1, ...series.flatMap(s => s.data.map(v => v || 0)));
+  const p10 = Math.pow(10, Math.floor(Math.log10(maxV))); const top = Math.ceil(maxV / p10) * p10;
+  const n = labels.length;
+  const x = i => (n <= 1 ? padL + (W - padL - padR) / 2 : padL + i * (W - padL - padR) / (n - 1));
+  const y = v => padT + (H - padT - padB) * (1 - (v || 0) / top);
+  const f = fmt || (v => num(v));
+  const [hov, setHov] = useState(null);
+  return html`<div>
+    <svg class="chart" viewBox=${`0 0 ${W} ${H}`} role="img" aria-label=${series.map(s => s.name).join(', ')} onMouseLeave=${() => { setHov(null); hideTip(); }}>
+      ${[0, top / 2, top].map(t => html`<g key=${t}><line class=${t === 0 ? 'axis-0' : 'grid-l'} x1=${padL} x2=${W - padR} y1=${y(t)} y2=${y(t)}/><text x=${padL - 8} y=${y(t) + 4} text-anchor="end">${f(t)}</text></g>`)}
+      ${labels.map((lb, i) => (n <= 8 || i % Math.ceil(n / 8) === 0 || i === n - 1) && html`<text key=${'l' + i} x=${x(i)} y=${H - 6} text-anchor="middle">${lb}</text>`)}
+      ${hov != null && html`<line x1=${x(hov)} x2=${x(hov)} y1=${padT} y2=${H - padB} stroke="var(--border-strong)" stroke-width="1"/>`}
+      ${series.map(s => html`<g key=${s.name}><polyline fill="none" stroke=${s.color} stroke-width="2" stroke-linejoin="round" points=${s.data.map((v, i) => x(i) + ',' + y(v)).join(' ')}/>
+        ${s.data.map((v, i) => html`<circle key=${i} cx=${x(i)} cy=${y(v)} r=${hov === i ? 5 : 3.5} fill=${s.color} stroke="var(--surface)" stroke-width="2"/>`)}</g>`)}
+      ${labels.map((lb, i) => html`<rect key=${'h' + i} x=${x(i) - (W - padL) / Math.max(1, n) / 2} y=${padT} width=${(W - padL) / Math.max(1, n)} height=${H - padT - padB} fill="transparent"
+        onMouseMove=${e => { setHov(i); showTip(e, html`<div><b>${lb}</b>${series.map(s => html`<div key=${s.name}><span class="dot" style=${{ background: s.color, marginRight: 6 }}/>${s.name}: <b>${f(s.data[i] || 0)}</b></div>`)}</div>`); }}/>`)}
+    </svg>
+    ${series.length > 1 && html`<div class="legend">${series.map(s => html`<span key=${s.name}><i style=${{ background: s.color }}/>${s.name}</span>`)}</div>`}
+  </div>`;
+}

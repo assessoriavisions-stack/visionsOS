@@ -119,7 +119,7 @@ function SettingsPage() {
     ${tab === 'despesas' && html`<div class="card"><div class="card-h"><h3>Categorias de despesa</h3><span class="sub">marque as que entram no cálculo do CAC</span></div>
       <${ListEditor} items=${S.costCategories} onChange=${v => set({ costCategories: v })} newItem=${{ name: 'Nova categoria', cac: false }} cols=${[{ k: 'name', l: 'Nome', w: 280 }, { k: 'cac', l: 'Entra no CAC', type: 'bool', w: 90 }]}/></div>`}
     ${tab === 'asaas' && html`<${AsaasSettings}/>`}
-    ${tab === 'importar' && html`<${ImportV6}/>`}
+    ${tab === 'importar' && html`<${Fragment}><${ImportV6}/><${ImportOldDashboard}/></${Fragment}>`}
     ${tab === 'backup' && html`<${BackupBox}/>`}
   </div>`;
 }

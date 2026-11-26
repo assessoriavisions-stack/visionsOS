@@ -68,14 +68,17 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
   - atrasos.
 
 ### Painel semanal de clientes (o dashboard do Netlify, agora dentro do sistema)
-Para cada cliente de tráfego:
-- **Registrar semana**: gasto, leads, agendamentos, ticket médio e faturamento por outros canais.
-- **Indicadores**: % da meta mensal, faturamento via tráfego × outros, ROAS, CPL, conversão de leads em agendamento, CAC por agendamento e ticket médio.
-- **Gráficos**: faturamento acumulado × meta e CPL × CAC por semana.
-- **Benchmarks**: CAC até X% do ticket e ROAS esperado, ajustáveis por cliente.
-- **Histórico** editável, filtro de período e **Exportar PDF**.
+- **Por campanha**: cada cliente tem suas campanhas (nome e plataforma; dá para pausar). Ao registrar a semana, você preenche **uma linha por campanha** e o faturamento por outros canais do cliente.
+- **Dois modelos de funil por cliente**:
+  - *agendamento*: leads → agendamentos × ticket. Ex.: Life Embalagens.
+  - *reunião → venda fechada*: leads → reuniões → vendas × ticket, com CAC por venda e taxa de fechamento. Ex.: Focus Consultoria.
+- **Resultado por campanha**: investimento, % da verba, leads, CPL, agendamentos ou reuniões, custo por etapa, vendas, CAC, faturamento e ROAS. Clicar numa campanha filtra o painel inteiro por ela.
+- **Gráficos**: faturamento acumulado × meta, CPL × CAC por semana e investimento por campanha.
+- **Benchmarks** de CAC (valor fixo ou % do ticket) e de ROAS por cliente. Histórico editável, filtro de período e **Exportar PDF**.
+- **% da meta** compara o faturamento do período com a meta mensal × nº de meses do período.
+- **Ticket médio** = faturamento via tráfego ÷ conversões. O painel antigo fazia a média simples das semanas, contando as semanas sem venda como zero.
 
-Diferente do painel antigo, os dados ficam **na nuvem**, não em um navegador só. O painel antigo salvava tudo no navegador de quem lançou, então os registros de lá precisam ser lançados de novo aqui (é rápido: uma linha por semana).
+**Importar o painel antigo**: Configurações → Importar dados → "Importar o painel semanal antigo". Você copia os dados no navegador onde usa o painel, com um comando no console que só copia e não altera nada, e cola no sistema. Como reserva, existem também os dados transcritos das capturas de tela de 26/11, mas a Life Embalagens entra só com os totais.
 
 ### Metas e calculadoras
 - **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
@@ -148,7 +151,7 @@ build.js                gera o index.html único (e dist/index.html):  node buil
 netlify/functions/      asaas.mjs (ponte segura com a API) e asaas-webhook.mjs (baixa automática)
 ```
 
-Visual: paleta Visions (laranja `#FF6700` nos destaques, azul `#2050A0`/`#4C6FE0`, dourado `#C7860A`, verde `#17A567`) com fonte Inter. As cores ficam nos tokens de `src/styles.css`.
+Visual: paleta do painel Visions (azul `#4C6FE0` como cor principal, azul-marinho `#2050A0`, dourado `#C7860A`, verde `#17A567`) com fonte Inter. As cores ficam nos tokens de `src/styles.css`.
 
 Stack: React 18 + [htm](https://github.com/developit/htm) via CDN, sem etapa de compilação além do `build.js`.
 
