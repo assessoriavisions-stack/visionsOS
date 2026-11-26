@@ -36,7 +36,9 @@ function asaasIndex(db) {
 const mirrorCustomers = db => new Set(vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).map(c => c.asaasCustomer));
 const linkedAsaasIds = db => {
   const s = new Set(); vals(db.payments).forEach(p => p.asaasId && s.add(p.asaasId));
-  const mc = mirrorCustomers(db); vals(db.asaas).forEach(a => { if (mc.has(a.customer)) s.add(a.id); }); // contratos espelho
+  vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).forEach(c => vals(db.asaas).forEach(a => { // contratos espelho (dentro do período)
+    if (a.customer === c.asaasCustomer && (!c.startDate || a.dueDate >= c.startDate) && (!c.endDate || a.dueDate <= c.endDate)) s.add(a.id);
+  }));
   return s;
 };
 function invoicesOf(c, payments, horizonYm, ax) {
@@ -106,7 +108,7 @@ function allInvoices(db, horizonYm) {
   const ax = asaasIndex(db);
   // contratos "espelho do Asaas": cada cobrança do cliente no Asaas vira um recebível
   vals(db.contracts).filter(c => c.kind === 'espelho' && c.asaasCustomer).forEach(c => {
-    c._mirror = vals(db.asaas).filter(a => a.customer === c.asaasCustomer && !a.deleted).sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''));
+    c._mirror = vals(db.asaas).filter(a => a.customer === c.asaasCustomer && !a.deleted && (!c.startDate || a.dueDate >= c.startDate) && (!c.endDate || a.dueDate <= c.endDate)).sort((x, y) => (x.dueDate || '').localeCompare(y.dueDate || ''));
     c._mirror.forEach(a => (ax[c.id + '-a' + a.id] = a));
   });
   return vals(db.contracts).flatMap(c => invoicesOf(c, db.payments, horizonYm, ax));
@@ -190,7 +192,7 @@ function monthFinance(db, ym, inv) {
   const imposto = S.taxAuto ? caixa * (Number(S.taxRate) || 0) / 100 : 0;
   // movimentos de MRR
   const novos = cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym);
-  const churned = cts.filter(c => c.kind === 'recorrente' && ymOf(c.noticeDate || c.endDate) === ym && (c.noticeDate || c.endDate));
+  const churned = cts.filter(c => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && ymOf(c.noticeDate || c.endDate) === ym && (c.noticeDate || c.endDate));
   const novoMrr = sum(novos, c => brlValue(c));
   const churnMrr = sum(churned, c => brlValue(c));
   const projetosVendidos = cts.filter(c => c.kind === 'projeto' && ymOf(c.startDate) === ym && !c.canceled);
