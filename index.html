@@ -773,7 +773,10 @@ function invoicesOf(c, payments, horizonYm, ax) {
   } else {
     const n = Math.max(1, Number(c.installments) || 1);
     const f = c.firstDue || c.startDate || today();
-    splitAmounts(Number(c.value) || 0, n).forEach((a, i) => mk(c.id + '-p' + i, 'parcela', n > 1 ? 'Parcela ' + (i + 1) + '/' + n : 'Pagamento único', addMonthsDate(f, i), a, { n: i + 1, of: n }));
+    const down = Math.min(Number(c.downPayment) || 0, Number(c.value) || 0);
+    if (down > 0) mk(c.id + '-e', 'entrada', 'Entrada (sinal)', c.downDate || c.startDate || today(), down, { n: 0, of: n });
+    const rest = (Number(c.value) || 0) - down;
+    if (rest > 0.004) splitAmounts(rest, n).forEach((a, i) => mk(c.id + '-p' + i, 'parcela', n > 1 ? 'Parcela ' + (i + 1) + '/' + n : (down > 0 ? 'Saldo' : 'Pagamento único'), addMonthsDate(f, i), a, { n: i + 1, of: n }));
   }
   return out;
 }
@@ -839,7 +842,7 @@ function monthFinance(db, ym, inv) {
   const mensalidades = sum(invs.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   let projetos = 0;
   if (S.projectRecognition === 'parcela') {
-    projetos = sum(invs.filter(i => (i.kind === 'parcela' || i.kind === 'setup') && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
+    projetos = sum(invs.filter(i => (i.kind === 'parcela' || i.kind === 'entrada' || i.kind === 'setup') && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   } else {
     projetos = sum(cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym), c => brlValue(c))
       + sum(cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym), c => brlSetup(c));
@@ -1858,7 +1861,7 @@ const ctStatusTag = s => ({ ativo: ['good', 'Ativo'], aviso: ['warn', 'Em aviso'
 const cv = (c, v) => (c.currency && c.currency !== 'BRL' ? moneyCur(v, c.currency) : money(v));
 const condText = c => c.kind === 'recorrente'
   ? cv(c, c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + cv(c, c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
-  : (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, c.value / c.installments) : 'à vista') + ' · total ' + cv(c, c.value);
+  : (Number(c.downPayment) > 0 ? 'entrada ' + cv(c, c.downPayment) + ' + ' : '') + (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, (c.value - (Number(c.downPayment) || 0)) / c.installments) : (Number(c.downPayment) > 0 ? 'saldo' : 'à vista')) + ' · total ' + cv(c, c.value);
 
 /* ---------- visão geral ---------- */
 function FinancePage({ nav }) {
@@ -2012,7 +2015,7 @@ function ContractForm({ init, onClose, onSaved, deal }) {
   const [f, setF] = useState(() => Object.assign({
     clientId: '', clientName: '', productId: firstProd.id, kind: firstProd.kind || 'recorrente', value: firstProd.price || '', payDay: '10',
     startDate: today(), firstDue: today(), installments: 1, method: 'pix', setupValue: firstProd.setup || '', setupInstallments: 1, setupFirstDue: today(),
-    channelId: '', ownerId: CURRENT_USER.id, fidelity: '', notes: '', phone: '', document: '', email: '',
+    channelId: '', ownerId: CURRENT_USER.id, fidelity: '', notes: '', phone: '', document: '', email: '', downPayment: '', downDate: '',
     billing: S.asaas.enabled ? 'asaas' : 'manual', asaasBilling: '', currency: 'BRL', fxRate: '', payLink: '', payInstructions: '', reminderLang: 'en'
   }, init || {}));
   const curCl = f.clientId ? db.clients[f.clientId] : null;
@@ -2039,7 +2042,17 @@ function ContractForm({ init, onClose, onSaved, deal }) {
     const clNow = store.data.clients[clientId];
     if (clNow && doc && clNow.document !== doc) store.put('clients', Object.assign({}, clNow, { document: doc }));
     if (f.billing === 'asaas' && !onlyDigits(doc)) { if (!confirm('Sem CPF/CNPJ não dá para emitir no Asaas. Salvar mesmo assim e completar depois?')) return; }
-    const obj = Object.assign({}, f, { currency: f.billing === 'exterior' ? f.currency : 'BRL', fxRate: f.billing === 'exterior' ? n0(f.fxRate) || '' : '', clientId, clientName: name, value: n0(f.value), setupValue: f.kind === 'recorrente' ? n0(f.setupValue) : 0, installments: Math.max(1, n0(f.installments)), setupInstallments: Math.max(1, n0(f.setupInstallments)), payDay: n0(f.payDay) || parseD(f.firstDue).getDate() });
+    const orig = f.id ? store.data.contracts[f.id] : null;
+    const sig = c => [c.kind, n0(c.value), Math.max(1, n0(c.installments)), n0(c.downPayment), c.downDate || '', c.firstDue || '', n0(c.setupValue), Math.max(1, n0(c.setupInstallments)), c.setupFirstDue || ''].join('|');
+    if (orig && sig(orig) !== sig(f)) {
+      const old = vals(store.data.payments).filter(p => p.contractId === f.id || String(p.id).startsWith(f.id + '-'));
+      const parcOld = old.filter(p => !/-m\d{4}-\d{2}$/.test(p.id));
+      if (parcOld.length) {
+        if (!confirm('Você mudou valor, entrada ou parcelas deste contrato. As ' + parcOld.length + ' baixa(s) de parcelas/entrada/setup registradas nele serão apagadas, para você marcar de novo só o que foi pago (em Recebíveis → Dar baixa em várias). As mensalidades não são afetadas. Continuar?')) return;
+        parcOld.forEach(p => store.del('payments', p.id));
+      }
+    }
+    const obj = Object.assign({}, f, { downPayment: f.kind === 'projeto' ? n0(f.downPayment) : 0, currency: f.billing === 'exterior' ? f.currency : 'BRL', fxRate: f.billing === 'exterior' ? n0(f.fxRate) || '' : '', clientId, clientName: name, value: n0(f.value), setupValue: f.kind === 'recorrente' ? n0(f.setupValue) : 0, installments: Math.max(1, n0(f.installments)), setupInstallments: Math.max(1, n0(f.setupInstallments)), payDay: n0(f.payDay) || parseD(f.firstDue).getDate() });
     if (deal) obj.dealId = deal.id;
     const saved = store.put('contracts', obj);
     if (deal && deal.stage !== 'ganho') store.put('deals', Object.assign({}, deal, stagePatch(deal, 'ganho'), { contractId: saved.id, clientId }, logActivity(deal, 'nota', 'Venda fechada: ' + prodName(S, f.productId) + ' — ' + condText(obj))));
@@ -2082,6 +2095,9 @@ function ContractForm({ init, onClose, onSaved, deal }) {
         <${Input} type="number" pre=${sym} label="Valor total do projeto" v=${f.value} on=${F('value')}/>
         ${f.billing !== 'asaas' ? html`<${Select} label="Forma de pagamento" v=${f.method} on=${F('method')} opts=${METHODS}/>` : html`<div/>`}
         <${Field} label="Parcelas" cls="span3"><div class="row wrap"><${Chips} v=${Number(f.installments)} on=${v => F('installments')(v || 1)} opts=${P.map(n => ({ v: n, l: n === 1 ? 'À vista' : n + 'x' }))}/><input class="inp sm" style=${{ width: 70 }} type="number" min="1" value=${f.installments} onChange=${e => F('installments')(e.target.value)}/></div></${Field}>
+        <div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}><div class="b small mb8">Entrada / sinal (opcional)</div>
+          <div class="form c2"><${Input} type="number" pre=${sym} label="Valor da entrada" v=${f.downPayment} on=${F('downPayment')} hint=${n0(f.downPayment) > 0 ? 'O restante (' + (sym + ' ' + num(n0(f.value) - n0(f.downPayment), 2)) + ') é dividido nas parcelas acima' : 'Ex: R$ 2.500 de sinal e o resto em parcelas'}/>
+            <${Input} label="Data da entrada" type="date" v=${f.downDate} on=${F('downDate')}/></div></div>
         <${Input} label="Data da venda" type="date" v=${f.startDate} on=${v => setF({ ...f, startDate: v, firstDue: f.firstDue === f.startDate ? v : f.firstDue })} hint=${S.projectRecognition === 'venda' ? 'A receita entra inteira neste mês (competência)' : 'A receita entra conforme as parcelas vencem'}/>
         <${Input} label="1ª parcela" type="date" v=${f.firstDue} on=${F('firstDue')}/>
       `}

@@ -85,7 +85,10 @@ function invoicesOf(c, payments, horizonYm, ax) {
   } else {
     const n = Math.max(1, Number(c.installments) || 1);
     const f = c.firstDue || c.startDate || today();
-    splitAmounts(Number(c.value) || 0, n).forEach((a, i) => mk(c.id + '-p' + i, 'parcela', n > 1 ? 'Parcela ' + (i + 1) + '/' + n : 'Pagamento único', addMonthsDate(f, i), a, { n: i + 1, of: n }));
+    const down = Math.min(Number(c.downPayment) || 0, Number(c.value) || 0);
+    if (down > 0) mk(c.id + '-e', 'entrada', 'Entrada (sinal)', c.downDate || c.startDate || today(), down, { n: 0, of: n });
+    const rest = (Number(c.value) || 0) - down;
+    if (rest > 0.004) splitAmounts(rest, n).forEach((a, i) => mk(c.id + '-p' + i, 'parcela', n > 1 ? 'Parcela ' + (i + 1) + '/' + n : (down > 0 ? 'Saldo' : 'Pagamento único'), addMonthsDate(f, i), a, { n: i + 1, of: n }));
   }
   return out;
 }
@@ -151,7 +154,7 @@ function monthFinance(db, ym, inv) {
   const mensalidades = sum(invs.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   let projetos = 0;
   if (S.projectRecognition === 'parcela') {
-    projetos = sum(invs.filter(i => (i.kind === 'parcela' || i.kind === 'setup') && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
+    projetos = sum(invs.filter(i => (i.kind === 'parcela' || i.kind === 'entrada' || i.kind === 'setup') && i.origYm === ym && i.status !== 'cancelado'), i => i.amount);
   } else {
     projetos = sum(cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym), c => brlValue(c))
       + sum(cts.filter(c => c.kind === 'recorrente' && ymOf(c.startDate) === ym), c => brlSetup(c));
