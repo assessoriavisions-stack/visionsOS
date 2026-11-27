@@ -110,9 +110,9 @@ function SettingsPage() {
         <div class="xs faint mt8">Enquanto não alterar, vale a mesma senha do Visions OS atual.</div>
       </div>
     </div>`}
-    ${tab === 'produtos' && html`<div class="card"><div class="card-h"><h3>Produtos e preços de tabela</h3><span class="sub">usados para pré-preencher leads e vendas</span></div>
-      <${ListEditor} items=${S.products} onChange=${v => set({ products: v })} newItem=${{ name: 'Novo produto', kind: 'recorrente', price: 0, setup: 0 }}
-        cols=${[{ k: 'name', l: 'Nome', w: 220 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'recorrente', l: 'Recorrente' }, { v: 'projeto', l: 'Projeto / único' }] }, { k: 'price', l: 'Preço (mensal ou total)', type: 'number' }, { k: 'setup', l: 'Setup', type: 'number' }]}/></div>`}
+    ${tab === 'produtos' && html`<div class="card"><div class="card-h"><h3>Produtos e preços de tabela</h3><span class="sub">aparecem na hora de cadastrar leads e vendas · "antigo" = não aparece mais para novas vendas</span></div>
+      <${ListEditor} items=${S.products} onChange=${v => set({ products: v })} newItem=${{ name: 'Novo produto', kind: 'recorrente', price: 0, currency: 'BRL' }}
+        cols=${[{ k: 'name', l: 'Nome', w: 260 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'recorrente', l: 'Recorrente (mensal)' }, { v: 'projeto', l: 'Projeto / único' }] }, { k: 'price', l: 'Preço', type: 'number', w: 100 }, { k: 'currency', l: 'Moeda', type: 'select', opts: ['BRL', 'USD', 'EUR'].map(c => ({ v: c, l: c })), w: 80 }, { k: 'allowDiscount', l: 'Desconto', type: 'bool', w: 70 }, { k: 'legacy', l: 'Antigo', type: 'bool', w: 70 }]}/></div>`}
     ${tab === 'canais' && html`<div class="card"><div class="card-h"><h3>Canais de aquisição</h3><span class="sub">outbound aparece na prospecção diária</span></div>
       <${ListEditor} items=${S.channels} onChange=${v => set({ channels: v })} newItem=${{ name: 'Novo canal', kind: 'outbound' }}
         cols=${[{ k: 'name', l: 'Nome', w: 260 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'outbound', l: 'Outbound (prospecção ativa)' }, { v: 'pago', l: 'Tráfego pago' }, { v: 'inbound', l: 'Inbound / orgânico' }, { v: 'indicacao', l: 'Indicação' }] }]}/></div>`}

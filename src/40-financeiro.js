@@ -33,6 +33,7 @@ function FinancePage({ nav }) {
       <${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}>
     </${PageH}>
     <${MonthSummary} db=${db} ym=${ym} inv=${inv} f=${f} nav=${nav}/>
+    <${RevenueByProduct} db=${db} ym=${ym} inv=${inv} nav=${nav}/>
     <div class="grid g-side mb16">
       <div class="card"><div class="card-h"><h3>Receita × Caixa</h3><span class="sub">meses futuros = previsto pelas parcelas e mensalidades</span></div>
         <${BarChart} labels=${months.map(monthShort)} highlight=${months.indexOf(ym)} fmt=${v => (Math.abs(v) >= 1000 ? 'R$' + num(v / 1000, 0) + 'k' : money(v))}
@@ -151,7 +152,7 @@ function ReceivablesPage({ nav }) {
 /* ---------- contratos ---------- */
 function ContractForm({ init, onClose, onSaved, deal }) {
   const db = useDB(); const S = db.S;
-  const firstProd = S.products[0] || {};
+  const firstProd = S.products.find(p => !p.legacy) || S.products[0] || {};
   const [f, setF] = useState(() => Object.assign({
     clientId: '', clientName: '', productId: firstProd.id, kind: firstProd.kind || 'recorrente', value: firstProd.price || '', payDay: '10',
     startDate: today(), firstDue: today(), installments: 1, method: 'pix', setupValue: firstProd.setup || '', setupInstallments: 1, setupFirstDue: today(),
@@ -163,7 +164,11 @@ function ContractForm({ init, onClose, onSaved, deal }) {
   const sym = f.billing === 'exterior' ? (CURRENCIES[f.currency] || f.currency) : 'R$';
   const F = k => v => setF(p => ({ ...p, [k]: v }));
   const isNew = !f.id;
-  const pickProd = id => { const p = prodOf(S, id) || {}; setF(x => ({ ...x, productId: id, kind: p.kind || x.kind, value: isNew ? (p.price || x.value) : x.value, setupValue: isNew ? (p.setup || '') : x.setupValue })); };
+  const pickProd = id => { const p = prodOf(S, id) || {}; const cur = p.currency && p.currency !== 'BRL' ? p.currency : null;
+    setF(x => ({ ...x, productId: id, kind: p.kind || x.kind, listPrice: p.price || '', discount: '', value: isNew || x.productId !== id ? (p.price || x.value) : x.value, setupValue: isNew ? (p.setup || '') : x.setupValue,
+      ...(cur ? { billing: 'exterior', currency: cur } : (x.billing === 'exterior' && isNew ? { billing: S.asaas.enabled ? 'asaas' : 'manual', currency: 'BRL' } : {})) })); };
+  const prodNow = prodOf(S, f.productId) || {};
+  const setDiscount = v => setF(x => { const lp = n0(x.listPrice || prodNow.price); const dv = String(v).includes('%') ? lp * n0(String(v).replace('%', '')) / 100 : n0(v); return { ...x, discount: v, value: lp ? Math.round((lp - dv) * 100) / 100 : x.value }; });
   const clients = vals(db.clients).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const preview = useMemo(() => {
     const c = Object.assign({ id: 'preview' }, f, { value: n0(f.value), setupValue: n0(f.setupValue), currency: f.billing === 'exterior' ? f.currency : 'BRL', fxRate: n0(f.fxRate) || '' });
@@ -207,7 +212,11 @@ function ContractForm({ init, onClose, onSaved, deal }) {
       : html`<div><input class="inp" list="vos-clients" value=${f.clientName} placeholder="Nome do cliente / empresa" onChange=${e => { const v = e.target.value; const ex = clients.find(c => c.name === v); setF({ ...f, clientName: v, clientId: ex ? ex.id : '', _typing: !ex }); }}/>
           <datalist id="vos-clients">${clients.map(c => html`<option key=${c.id} value=${c.name}/>`)}</datalist></div>`}</${Field}>
       <${Select} label="Canal de origem (p/ CAC)" v=${f.channelId} on=${F('channelId')} ph="—" opts=${S.channels.map(c => ({ v: c.id, l: c.name }))}/>
-      <${Field} label="Produto" cls="span3"><${Chips} v=${f.productId} on=${pickProd} opts=${S.products.map(p => ({ v: p.id, l: p.name }))}/></${Field}>
+      <${Field} label="Produto" cls="span3"><${Chips} v=${f.productId} on=${pickProd} opts=${S.products.filter(p => !p.legacy || p.id === f.productId).map(p => ({ v: p.id, l: p.name + (p.price ? ' · ' + (p.currency && p.currency !== 'BRL' ? moneyCur(p.price, p.currency) : money(p.price)) : '') }))}/></${Field}>
+      ${prodNow.allowDiscount && html`<div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}><div class="form c3">
+        <${Field} label="Preço de tabela"><div class="b num" style=${{ padding: '9px 0' }}>${money(n0(f.listPrice || prodNow.price))}</div></${Field}>
+        <${Input} label="Desconto" v=${f.discount} on=${setDiscount} ph="Ex: 500 ou 10%" hint="Em reais ou em %"/>
+        <${Field} label="Valor final"><div class="b num" style=${{ padding: '9px 0', color: 'var(--good)' }}>${money(n0(f.value))}</div></${Field}></div></div>`}
       <${Field} label="Como cobrar" cls="span3"><${Seg} v=${f.billing} on=${v => setF(x => ({ ...x, billing: v, currency: v === 'exterior' ? (x.currency && x.currency !== 'BRL' ? x.currency : 'USD') : 'BRL' }))} opts=${[{ v: 'asaas', l: 'Asaas (boleto · Pix · cartão)' }, { v: 'manual', l: 'Manual (Brasil)' }, { v: 'exterior', l: '🌎 Cliente do exterior' }]}/></${Field}>
       ${f.billing === 'asaas' && html`<${Input} label="CPF / CNPJ do cliente" v=${doc} on=${setDoc} ph="Obrigatório para o Asaas"/>
         <${Select} label="Forma no Asaas" v=${f.asaasBilling} on=${F('asaasBilling')} ph=${'Padrão (' + ({ UNDEFINED: 'cliente escolhe', PIX: 'Pix', BOLETO: 'boleto', CREDIT_CARD: 'cartão' }[S.asaas.billingType] || '') + ')'} opts=${[{ v: 'UNDEFINED', l: 'Cliente escolhe' }, { v: 'PIX', l: 'Pix' }, { v: 'BOLETO', l: 'Boleto' }, { v: 'CREDIT_CARD', l: 'Cartão de crédito' }]}/>`}
@@ -467,4 +476,73 @@ function MonthSummary({ db, ym, inv, f, nav }) {
     <details class="card mb16"><summary class="small b" style=${{ cursor: 'pointer' }}>O que é "receita por competência"? (${money(f.receita)} em ${monthShort(ym)})</summary>
       <div class="small muted mt8">É o valor <b>vendido/faturado</b> no mês, mesmo que ainda não tenha caído na conta: mensalidades do mês (${money(f.mensalidades)}) + projetos e setups vendidos no mês, pelo valor total (${money(f.projetos)}). Ex.: uma Consultoria 360 de R$ 5.500 vendida em setembro conta R$ 5.500 de receita em setembro, mas o caixa entra parcela por parcela. Para o dia a dia, olhe a <b>receita real (caixa)</b>.</div></details>
   </div>`;
+}
+
+/* ---------- de onde vem a receita (por produto) ---------- */
+function suggestProduct(c, S) {
+  const has = id => S.products.some(p => p.id === id);
+  const txt = (c.notes || '').toLowerCase(); // só as observações do contrato (o nome do cliente engana)
+  let s = '';
+  if (/consultoria 360|\b360\b/.test(txt)) s = 'c360';
+  else if (/rede|social|conteúdo|conteudo/.test(txt)) s = 'social';
+  else if (/\bia\b|intelig|humaniz/.test(txt)) s = 'ia';
+  else if (/sistema|crm/.test(txt) && c.kind === 'projeto') s = 'sistemas';
+  else if (c.kind === 'recorrente' || c.kind === 'espelho') {
+    if (c.currency && c.currency !== 'BRL') s = 'trafego_eua';
+    else if (Math.abs(n0(c.value) - 197) < 1) s = 'tracking';
+    else s = 'trafego';
+  } else if (c.kind === 'projeto') {
+    const v = n0(c.value) * fxRate(c);
+    if (v >= 7000) s = 'sistemas'; else if (v >= 4500 && v < 7000) s = 'c360';
+  }
+  return has(s) ? s : '';
+}
+function RevenueByProduct({ db, ym, inv, nav }) {
+  const S = db.S;
+  const [showInfo, setShowInfo] = useState(false); const [fix, setFix] = useState(false);
+  const isLegacy = id => !id || !(S.products.find(p => p.id === id)) || (S.products.find(p => p.id === id) || {}).legacy;
+  const keyOf = id => (isLegacy(id) ? '__sem' : id);
+  const cts = vals(db.contracts);
+  const rows = {}; const R = k => (rows[k] = rows[k] || { k, mrr: 0, prev: 0, rec: 0, comp: 0, clients: new Set() });
+  cts.filter(c => contractActiveIn(c, ym)).forEach(c => { const r = R(keyOf(c.productId)); r.mrr += brlValue(c); r.clients.add(c.clientId); });
+  inv.filter(i => i.ym === ym && i.status !== 'cancelado' && !isInadimplente(i)).forEach(i => { const r = R(keyOf(i.productId)); r.prev += i.amount; r.clients.add(i.clientId); });
+  inv.filter(i => i.status === 'pago' && ymOf(i.paidAt) === ym).forEach(i => { R(keyOf(i.productId)).rec += i.paidAmount; });
+  inv.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado').forEach(i => { R(keyOf(i.productId)).comp += i.amount; });
+  cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym).forEach(c => { R(keyOf(c.productId)).comp += brlValue(c); });
+  const list = Object.values(rows).filter(r => r.mrr || r.prev || r.rec || r.comp).sort((a, b) => b.rec + b.prev - (a.rec + a.prev));
+  const tot = { mrr: sum(list, r => r.mrr), prev: sum(list, r => r.prev), rec: sum(list, r => r.rec), comp: sum(list, r => r.comp) };
+  const nameOf = k => (k === '__sem' ? 'Sem produto definido (contratos antigos)' : prodName(S, k));
+  const colorOf = k => (k === '__sem' ? 'var(--border-strong)' : 'var(--' + ((S.products.find(p => p.id === k) || {}).color || 's1') + ')');
+  const toFix = cts.filter(c => isLegacy(c.productId) && (contractStatus(c) !== 'encerrado'));
+  return html`<div class="card flush mb16">
+    <div class="lgroup"><span>De onde vem a receita — ${monthLabel(ym)}</span><span style=${{ textTransform: 'none', letterSpacing: 0 }}><button class="btn xs ghost" onClick=${() => setShowInfo(!showInfo)}>${showInfo ? 'Fechar' : 'ⓘ O que é cada número?'}</button></span></div>
+    ${showInfo && html`<div class="grid g4" style=${{ padding: 14, gap: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
+      <div class="small"><b>MRR</b><div class="muted">Soma das mensalidades dos contratos ativos e em aviso. É a "receita que se repete todo mês". Não conta projetos.</div></div>
+      <div class="small"><b>Previsto no mês</b><div class="muted">Tudo que vence neste mês: mensalidades, parcelas, setups. Não inclui inadimplência de meses anteriores.</div></div>
+      <div class="small"><b>Recebido (receita real)</b><div class="muted">O que de fato caiu na conta no mês. Pelo Asaas, já vem líquido das taxas.</div></div>
+      <div class="small"><b>Vendido (competência)</b><div class="muted">Mensalidades do mês + valor total dos projetos fechados no mês, mesmo que parcelados.</div></div>
+    </div>`}
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Produto</th><th class="r">Clientes</th><th class="r">MRR</th><th class="r">Previsto no mês</th><th class="r">Recebido</th><th class="r">Vendido (competência)</th><th style=${{ width: '22%' }}>% do recebido</th></tr></thead><tbody>
+      ${list.map(r => html`<tr key=${r.k}><td><span class="row" style=${{ gap: 8 }}><span class="dot" style=${{ background: colorOf(r.k) }}/><b class="small">${nameOf(r.k)}</b></span></td>
+        <td class="r num">${r.clients.size}</td><td class="r num">${r.mrr ? money(r.mrr) : '—'}</td><td class="r num">${money(r.prev)}</td><td class="r num b">${money(r.rec)}</td><td class="r num">${money(r.comp)}</td>
+        <td><div class="row" style=${{ gap: 8 }}><div class="bar" style=${{ flex: 1 }}><i style=${{ width: (tot.rec ? r.rec / tot.rec * 100 : 0) + '%', background: colorOf(r.k) }}/></div><span class="xs num" style=${{ width: 36, textAlign: 'right' }}>${pct(tot.rec ? r.rec / tot.rec * 100 : 0)}</span></div></td></tr>`)}
+    </tbody><tfoot><tr><td>Total</td><td/><td class="r">${money(tot.mrr)}</td><td class="r">${money(tot.prev)}</td><td class="r">${money(tot.rec)}</td><td class="r">${money(tot.comp)}</td><td/></tr></tfoot></table></div>
+    ${toFix.length > 0 && html`<div class="callout warn" style=${{ margin: 12 }}><div class="row between wrap" style=${{ gap: 10 }}><div><b class="t">${toFix.length} contratos sem produto definido</b>Vieram do sistema antigo como "Gestão de Marketing". Classifique para ver a receita por produto certinha.</div><${Btn} sz="sm" v="pri" on=${() => setFix(true)}>Classificar agora</${Btn}></div></div>`}
+    ${fix && html`<${ClassifyProducts} list=${toFix} onClose=${() => setFix(false)}/>`}
+  </div>`;
+}
+function ClassifyProducts({ list, onClose }) {
+  const db = useDB(); const S = db.S;
+  const [pick, setPick] = useState(() => Object.fromEntries(list.map(c => [c.id, suggestProduct(c, S)])));
+  const opts = S.products.filter(p => !p.legacy).map(p => ({ v: p.id, l: p.name }));
+  const save = () => {
+    let n = 0; list.forEach(c => { if (pick[c.id] && pick[c.id] !== c.productId) { store.put('contracts', Object.assign({}, store.data.contracts[c.id], { productId: pick[c.id] })); n++; } });
+    toast(n + ' contrato(s) classificados.'); onClose();
+  };
+  return html`<${Modal} title="Classificar contratos por produto" size="lg" onClose=${onClose} footer=${html`<${Btn} on=${onClose}>Cancelar</${Btn}><${Btn} v="pri" on=${save}>Salvar ${Object.entries(pick).filter(([id, v]) => v).length} classificações</${Btn}>`}>
+    <p class="small muted" style=${{ marginTop: 0 }}>Já deixei uma <b>sugestão</b> em cada um (pelo valor, moeda e tipo). Confira e troque o que estiver errado. Deixe em branco se não souber.</p>
+    <div class="card flush" style=${{ maxHeight: '55vh', overflowY: 'auto' }}>${list.sort((a, b) => (a.clientName || '').localeCompare(b.clientName || '')).map(c => html`<div class="lrow" key=${c.id}>
+      <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${c.clientName}</div><div class="xs faint ellipsis">${condText(c)}${c.notes ? ' · ' + c.notes : ''}</div></div>
+      <div style=${{ width: 300 }}><${Select} sm=${true} v=${pick[c.id]} on=${v => setPick(p => ({ ...p, [c.id]: v }))} ph="— escolher —" opts=${opts}/></div></div>`)}</div>
+  </${Modal}>`;
 }

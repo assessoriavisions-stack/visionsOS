@@ -68,12 +68,17 @@ const DEFAULT_SETTINGS = {
   version: 1,
   company: 'Visions Marketing',
   products: [
-    { id: 'trafego', name: 'Tráfego Pago + Assessoria', kind: 'recorrente', price: 2500, setup: 0, color: 's1' },
-    { id: 'tracking', name: 'Visions Tracking', kind: 'recorrente', price: 497, setup: 1500, color: 's3' },
-    { id: 'c360', name: 'Consultoria 360', kind: 'projeto', price: 6000, setup: 0, color: 's7' },
-    { id: 'conteudo', name: 'Gestão de Conteúdo', kind: 'recorrente', price: 2000, setup: 0, color: 's2' },
-    { id: 'site', name: 'Site / Landing Page', kind: 'projeto', price: 3000, setup: 0, color: 's4' }
+    { id: 'c360', name: 'Consultoria 360', kind: 'projeto', price: 6000, currency: 'BRL', allowDiscount: true, color: 's7' },
+    { id: 'tracking', name: 'Visions Tracking (CRM básico Visions)', kind: 'recorrente', price: 197, currency: 'BRL', color: 's3' },
+    { id: 'trafego', name: 'Tráfego Pago + Assessoria Comercial (Brasil)', kind: 'recorrente', price: 1500, currency: 'BRL', color: 's1' },
+    { id: 'trafego_eua', name: 'Tráfego Pago + Assessoria Comercial + CRM (EUA)', kind: 'recorrente', price: 400, currency: 'USD', color: 's6' },
+    { id: 'sistemas', name: 'Construção de Sistemas', kind: 'projeto', price: 8000, currency: 'BRL', color: 's4' },
+    { id: 'ia', name: 'Implantação IA Humanizada', kind: 'projeto', price: 5000, currency: 'BRL', color: 's5' },
+    { id: 'social', name: 'Gestão de Redes Sociais', kind: 'recorrente', price: 2000, currency: 'BRL', color: 's2' },
+    { id: 'conteudo', name: 'Gestão de Marketing (antigo)', kind: 'recorrente', price: 0, currency: 'BRL', legacy: true, color: 's8' },
+    { id: 'site', name: 'Site / Landing Page (antigo)', kind: 'projeto', price: 0, currency: 'BRL', legacy: true, color: 's8' }
   ],
+
   channels: [
     { id: 'ig_dm', name: 'Prospecção — Instagram DM', kind: 'outbound' },
     { id: 'wpp', name: 'Prospecção — WhatsApp', kind: 'outbound' },
