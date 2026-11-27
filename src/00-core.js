@@ -206,7 +206,7 @@ const DEFAULT_CADENCES = [
 /* ---------- storage: Firebase RTDB (REST) + cache local + fila offline ---------- */
 const FB_BASE = 'https://visions-os2-default-rtdb.firebaseio.com/vos';
 const NS = 'vos7_';
-const COLLS = ['clients', 'contracts', 'payments', 'costs', 'deals', 'cadences', 'prospect', 'spend', 'goals', 'perf', 'asaas'];
+const COLLS = ['clients', 'contracts', 'payments', 'costs', 'deals', 'cadences', 'prospect', 'spend', 'goals', 'perf', 'asaas', 'mkposts', 'mkads'];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* sem storage */ } }

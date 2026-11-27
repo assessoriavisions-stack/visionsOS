@@ -301,6 +301,7 @@ const PAGES = [
   { id: 'prospeccao', l: 'Prospecção', icon: 'target', g: 'Comercial' },
   { id: 'cadencias', l: 'Cadências', icon: 'repeat', g: 'Comercial' },
   { id: 'analise', l: 'Análise comercial', icon: 'chart', g: 'Comercial' },
+  { id: 'marketing', l: 'Marketing Visions', icon: 'camera', g: 'Comercial' },
   { id: 'financeiro', l: 'Visão geral', icon: 'wallet', g: 'Financeiro' },
   { id: 'recebiveis', l: 'Recebíveis', icon: 'inbox', g: 'Financeiro' },
   { id: 'cobrancas', l: 'Cobranças', icon: 'alert', g: 'Financeiro' },
@@ -327,7 +328,7 @@ function SyncBadge() {
 }
 function Shell({ onLogout }) {
   const db = useDB(); const S = db.S;
-  const TEAM_PAGES = ['operacao', 'interno', 'performance'];
+  const TEAM_PAGES = ['operacao', 'interno', 'performance', 'marketing'];
   const pages = CURRENT_USER.role === 'team' ? PAGES.filter(p => TEAM_PAGES.includes(p.id)) : PAGES;
   const parseHash = () => { const h = location.hash.replace('#', ''); if (h.startsWith('cliente/')) return { page: 'cliente', cid: h.slice(8) }; return pages.some(p => p.id === h) ? { page: h } : null; };
   const [page, setPage] = useState(() => (parseHash() || { page: CURRENT_USER.role === 'team' ? 'operacao' : 'hoje' }).page);
@@ -362,7 +363,7 @@ function Shell({ onLogout }) {
   const avisoN = leavingContracts(db).length;
   const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null, contratos: avisoN ? [avisoN, false] : null };
   const cur = page === 'cliente' ? { l: 'Espaço do cliente' } : (pages.find(p => p.id === page) || pages[0]);
-  const P = { operacao: OperacaoPage, interno: InternoPage, hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
+  const P = { marketing: MarketingPage, operacao: OperacaoPage, interno: InternoPage, hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
   let lastG = null;
   const NavItems = () => pages.map(p => {
     const head = p.g !== lastG && p.g ? html`<div class="grp" key=${'g' + p.g}>${p.g}</div>` : null; lastG = p.g;

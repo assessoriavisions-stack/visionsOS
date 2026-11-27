@@ -274,10 +274,14 @@ function prospectTotals(db, a, b, chId, userId) {
 const prospectDocId = (date, user) => date + '_' + (user || 'geral');
 
 // investimento em mídia/canais no mês
+// valor digitado à mão (Comercial → investimento) tem prioridade; sem ele, usa as semanas lançadas em Marketing Visions
+function adsSpendOf(db, ym, chId) { return sum(vals(db.mkads || {}).filter(a => a.date && ymOf(a.date) === ym && (!chId || a.channel === chId)), a => n0(a.spend)); }
 function spendOf(db, ym, chId) {
-  const s = db.spend[ym]; if (!s) return 0;
-  if (chId) return Number((s.byCh || {})[chId]) || 0;
-  return sum(Object.values(s.byCh || {}));
+  const man = ((db.spend || {})[ym] || {}).byCh || {};
+  const one = id => Number(man[id]) || adsSpendOf(db, ym, id);
+  if (chId) return one(chId);
+  const ids = new Set(Object.keys(man).concat(vals(db.mkads || {}).filter(a => a.date && ymOf(a.date) === ym).map(a => a.channel)));
+  return sum([...ids], one);
 }
 
 // visão comercial do mês: CAC blended e por canal
@@ -344,14 +348,14 @@ function goalActuals(db, ym) {
   const cm = commercialMonth(db, ym);
   const f = cm.fin;
   return {
-    newMrr: f.novoMrr, sales: cm.ev.ganhos, vendasValor: f.vendasValor, meetings: cm.ev.realizada, scheduled: cm.ev.agendada, leads: cm.ev.leads,
+    newMrr: f.novoMrr, sales: cm.ev.ganhos + f.novos.concat(f.projetosVendidos).filter(c => !c.dealId && c.kind !== 'espelho').length, vendasValor: f.vendasValor, meetings: cm.ev.realizada, scheduled: cm.ev.agendada, leads: cm.ev.leads,
     approaches: cm.pros.abord, cash: f.caixa, revenue: f.receita, invest: cm.midia, cac: cm.cac, mrr: f.mrr
   };
 }
 const GOAL_FIELDS = [
   { id: 'newMrr', l: 'Novo MRR vendido', fmt: 'money', h: 'Soma das mensalidades dos contratos recorrentes que começaram no mês' },
   { id: 'vendasValor', l: 'Valor total vendido', fmt: 'money', h: 'Novo MRR + projetos + setups vendidos no mês' },
-  { id: 'sales', l: 'Vendas (contratos)', fmt: 'int', h: 'Leads marcados como Ganho no mês' },
+  { id: 'sales', l: 'Vendas (contratos)', fmt: 'int', h: 'Leads marcados como Ganho no mês + contratos novos lançados sem lead' },
   { id: 'meetings', l: 'Reuniões realizadas', fmt: 'int', h: 'Leads que entraram em "Reunião realizada" no mês' },
   { id: 'scheduled', l: 'Reuniões agendadas', fmt: 'int' },
   { id: 'leads', l: 'Novos leads', fmt: 'int', h: 'Leads criados no CRM no mês' },

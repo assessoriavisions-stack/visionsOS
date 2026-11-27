@@ -103,6 +103,15 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 - **Instagram**: os insights mensais agora ficam no espaço de cada cliente (aba "Instagram", visível só para a agência).
 - Mesmas chaves do sistema antigo: `vos6_internal` (colabs, ac, re, insights), `vos6_manpend` e os lembretes `vos6_day15_*`, `vos6_boletos_*`, `vos6_relcamp_*`. Ao salvar, o sistema relê `vos6_internal` e troca só a parte alterada. Relatório, Campanhas, Processos e Tráfego antigos não aparecem mais, mas os dados continuam guardados.
 
+### Marketing Visions (nossas redes e nosso tráfego)
+- **Conteúdo:** registro de cada post nosso (formato, pilar, gancho, CTA e os números do Insights: alcance, curtidas, comentários, salvamentos, compartilhamentos, seguidores e leads/DMs).
+  - O sistema calcula engajamento e um **índice de desempenho**, em que 100 é a média do período.
+  - Compara formatos, pilares e dias da semana, mostra os melhores posts e escreve automaticamente o que está funcionando.
+- **Tráfego pago:** lançamento semanal por campanha (investimento, impressões, cliques, leads, reuniões e vendas), com CTR, CPC, CPL, custo por reunião e CAC.
+  - Também cruza com os leads de tráfego cadastrados no CRM e gera alertas (campanha sem lead, CTR baixo, CPL subindo).
+  - O investimento lançado aqui entra no CAC do Comercial quando o mês não tem valor digitado à mão.
+- Coleções `vos7_mkposts` e `vos7_mkads`. O login da equipe também acessa essa área.
+
 ### Metas e calculadoras
 - **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
 - **Calculadora de metas & CAC** (funil reverso, no estilo Visions Tracking): parte da meta de novo MRR e calcula vendas, reuniões, leads e investimento. Mostra CAC projetado × CAC máximo (LTV ÷ 3), LTV:CAC, payback, custo por reunião e diagnóstico. O botão "Usar meus números reais" preenche com os últimos 90 dias, e "Salvar metas" grava direto nas metas do mês.
@@ -171,6 +180,7 @@ src/
   50-metas.js           metas e calculadoras
   55-performance.js     painel semanal de clientes (tráfego, ROAS, CPL, CAC, meta)
   37-interno.js         interno: pendências, overview, cronograma, reuniões, acessos, membros; Instagram do cliente
+  57-marketing.js       marketing Visions: performance dos nossos posts e do nosso tráfego
   60-app.js             Hoje, configurações, importação, login (agência/equipe/cliente), navegação
   65-portal.js          portal do cliente
 build.js                gera o index.html único (e dist/index.html):  node build.js
