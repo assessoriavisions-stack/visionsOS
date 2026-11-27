@@ -256,36 +256,44 @@ function Palette({ onClose, nav, pages }) {
 }
 
 /* ---------- login ---------- */
-function Login({ onOk }) {
-  const db = useDB();
-  const [pwd, setPwd] = useState(''); const [who, setWho] = useState(LS.get('vos7_lastuser', db.S.team[0].id)); const [err, setErr] = useState(''); const [ld, setLd] = useState(false);
+function Login({ onOk, onClient }) {
+  // só a configuração (nomes da equipe/senha) — os dados da agência não são baixados aqui
+  const [cfg, setCfg] = useState(() => (MODE === 'local' ? store.data.settings : LS.get('vos7_loginsettings', null)));
+  useEffect(() => { if (MODE === 'remote') fbGet('vos7_settings').then(v => { if (v) { setCfg(v); LS.set('vos7_loginsettings', { team: v.team, password: v.password, teamPassword: v.teamPassword }); } }).catch(() => {}); }, []);
+  const db = { S: settingsOf({ settings: cfg }) };
+  const [mode, setMode] = useState(LS.get('vos7_loginmode', 'ag'));
+  const [pwd, setPwd] = useState(''); const [code, setCode] = useState(''); const [who, setWho] = useState(LS.get('vos7_lastuser', db.S.team[0].id)); const [err, setErr] = useState(''); const [ld, setLd] = useState(false);
+  const oldPwd = async k => { if (MODE !== 'remote') return null; try { const v = await fbGet(k); return typeof v === 'string' && v ? v : null; } catch (e) { return null; } };
   const go = async () => {
-    setLd(true); setErr('');
-    let ok = false;
-    const custom = db.S.password;
-    if (custom) ok = pwd === custom;
-    else {
-      let old = null; if (MODE === 'remote') { try { old = await fbGet('vos6_pwd'); } catch (e) { /* offline */ } }
-      ok = pwd === (typeof old === 'string' && old ? old : 'visions2025');
-    }
-    setLd(false);
-    if (!ok) return setErr('Senha incorreta.');
-    LS.set('vos7_lastuser', who); LS.set('vos7_session', { user: who, at: stamp() }); onOk(who);
+    setLd(true); setErr(''); LS.set('vos7_loginmode', mode);
+    try {
+      if (mode === 'cl') {
+        const list = asArr(await docLoad(V6('clients'), true));
+        const c = list.find(x => (x.code || '').toUpperCase() === code.trim().toUpperCase() && !x.archived);
+        if (!c) return setErr('Código não encontrado. Confira com a equipe Visions.');
+        LS.set('vos7_session', { role: 'cl', clientId: c.id, at: stamp() }); onClient(c.id); return;
+      }
+      let ok = false;
+      if (mode === 'team') ok = pwd === (db.S.teamPassword || (await oldPwd('vos6_teampwd')) || 'visionsteam') || pwd === (db.S.password || (await oldPwd('vos6_pwd')) || 'visions2025');
+      else ok = db.S.password ? pwd === db.S.password : pwd === ((await oldPwd('vos6_pwd')) || 'visions2025');
+      if (!ok) return setErr('Senha incorreta.');
+      LS.set('vos7_lastuser', who); LS.set('vos7_session', { user: who, role: mode, at: stamp() }); onOk(who);
+    } finally { setLd(false); }
   };
   return html`<div class="login"><div class="card">
     <div style=${{ background: '#fff', borderRadius: 12, padding: 10, display: 'flex', justifyContent: 'center', marginBottom: 18 }}><img src=${window.VOS_LOGO} alt="Visions Marketing" style=${{ height: 48 }}/></div>
     <h2 class="display" style=${{ fontSize: 22, textAlign: 'center' }}>Visions OS</h2>
-    <p class="muted small" style=${{ textAlign: 'center', marginTop: 4 }}>Comercial · Financeiro · Metas</p>
+    <div class="mt12" style=${{ display: 'flex', justifyContent: 'center' }}><${Seg} v=${mode} on=${m => { setMode(m); setErr(''); }} opts=${[{ v: 'ag', l: 'Agência' }, { v: 'team', l: 'Equipe' }, { v: 'cl', l: 'Sou cliente' }]}/></div>
     <div class="form mt16">
-      <${Select} label="Quem é você?" v=${who} on=${setWho} opts=${db.S.team.map(t => ({ v: t.id, l: t.name }))}/>
-      <${Input} label="Senha" type="password" v=${pwd} on=${setPwd} onEnter=${go} autoFocus=${true}/>
+      ${mode === 'cl' ? html`<${Input} label="Código de acesso" v=${code} on=${v => setCode(v.toUpperCase())} onEnter=${go} autoFocus=${true} ph="Ex: 2TQ6MR" hint="Você recebe esse código da equipe Visions."/>`
+      : html`<${Select} label="Quem é você?" v=${who} on=${setWho} opts=${db.S.team.map(t => ({ v: t.id, l: t.name }))}/>
+        <${Input} label=${mode === 'team' ? 'Senha da equipe' : 'Senha'} type="password" v=${pwd} on=${setPwd} onEnter=${go} autoFocus=${true}/>`}
       ${err && html`<div class="callout bad">${err}</div>`}
       <${Btn} v="pri" on=${go} disabled=${ld}>${ld ? 'Entrando…' : 'Entrar'}</${Btn}>
-      ${MODE === 'local' && html`<div class="xs faint">Modo de teste local: dados ficam só neste navegador. Senha padrão: visions2025.</div>`}
+      ${MODE === 'local' && html`<div class="xs faint">Modo de teste local. Senhas padrão: agência visions2025 · equipe visionsteam.</div>`}
     </div></div></div>`;
 }
 
-/* ---------- app shell ---------- */
 const PAGES = [
   { id: 'hoje', l: 'Hoje', icon: 'home', g: '' },
   { id: 'pipeline', l: 'Pipeline', icon: 'kanban', g: 'Comercial' },
@@ -298,7 +306,8 @@ const PAGES = [
   { id: 'cobrancas', l: 'Cobranças', icon: 'alert', g: 'Financeiro' },
   { id: 'contratos', l: 'Contratos', icon: 'file', g: 'Financeiro' },
   { id: 'despesas', l: 'Despesas', icon: 'down', g: 'Financeiro' },
-  { id: 'clientes', l: 'Carteira de clientes', icon: 'users', g: 'Clientes' },
+  { id: 'operacao', l: 'Clientes · operação', icon: 'kanban', g: 'Clientes' },
+  { id: 'clientes', l: 'Carteira (financeiro)', icon: 'users', g: 'Clientes' },
   { id: 'performance', l: 'Painel semanal', icon: 'chart', g: 'Clientes' },
   { id: 'metas', l: 'Metas do mês', icon: 'flag', g: 'Metas' },
   { id: 'calc_meta', l: 'Calc. metas & CAC', icon: 'calc', g: 'Metas' },
@@ -317,12 +326,19 @@ function SyncBadge() {
 }
 function Shell({ onLogout }) {
   const db = useDB(); const S = db.S;
-  const [page, setPage] = useState(() => { const h = location.hash.replace('#', ''); return PAGES.some(p => p.id === h) ? h : 'hoje'; });
+  const TEAM_PAGES = ['operacao', 'performance'];
+  const pages = CURRENT_USER.role === 'team' ? PAGES.filter(p => TEAM_PAGES.includes(p.id)) : PAGES;
+  const parseHash = () => { const h = location.hash.replace('#', ''); if (h.startsWith('cliente/')) return { page: 'cliente', cid: h.slice(8) }; return pages.some(p => p.id === h) ? { page: h } : null; };
+  const [page, setPage] = useState(() => (parseHash() || { page: CURRENT_USER.role === 'team' ? 'operacao' : 'hoje' }).page);
+  const [clientId, setClientId] = useState(() => (parseHash() || {}).cid || null);
+  const [preview, setPreview] = useState(null);
   const [dealId, setDealId] = useState(null); const [ctId, setCtId] = useState(null);
   const [modal, setModal] = useState(null); const [pal, setPal] = useState(false); const [fab, setFab] = useState(false); const [menu, setMenu] = useState(false);
-  useEffect(() => { const f = () => { const h = location.hash.replace('#', ''); if (PAGES.some(p => p.id === h)) setPage(h); }; window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
+  useEffect(() => { const f = () => { const r = parseHash(); if (r) { setPage(r.page); if (r.cid) setClientId(r.cid); } }; window.addEventListener('hashchange', f); return () => window.removeEventListener('hashchange', f); }, []);
   const nav = {
     go: id => { setPage(id); location.hash = id; window.scrollTo(0, 0); setMenu(false); },
+    client: id => { setClientId(id); setPage('cliente'); location.hash = 'cliente/' + id; window.scrollTo(0, 0); },
+    preview: id => setPreview(id),
     deal: id => setDealId(id), contract: id => setCtId(id),
     newDeal: init => setModal({ t: 'deal', init }), newContract: init => setModal({ t: 'contract', init }), newCost: () => setModal({ t: 'cost' }),
     win: d => setModal({ t: 'win', d }), lose: d => setModal({ t: 'lose', d })
@@ -344,13 +360,13 @@ function Shell({ onLogout }) {
   const issN = useMemo(() => reconcile(db, invNow).filter(x => x.type !== 'atrasada' && ISSUE_TYPES[x.type].t !== 'info').length, [invNow]);
   const avisoN = leavingContracts(db).length;
   const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null, contratos: avisoN ? [avisoN, false] : null };
-  const cur = PAGES.find(p => p.id === page) || PAGES[0];
-  const P = { hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
+  const cur = page === 'cliente' ? { l: 'Espaço do cliente' } : (pages.find(p => p.id === page) || pages[0]);
+  const P = { operacao: OperacaoPage, hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
   let lastG = null;
-  const NavItems = () => PAGES.map(p => {
+  const NavItems = () => pages.map(p => {
     const head = p.g !== lastG && p.g ? html`<div class="grp" key=${'g' + p.g}>${p.g}</div>` : null; lastG = p.g;
     const b = badge[p.id];
-    return html`<${Fragment} key=${p.id}>${head}<button class=${'it' + (page === p.id ? ' on' : '')} onClick=${() => nav.go(p.id)}><${Icon} n=${p.icon} s=${17}/>${p.l}${b && html`<span class=${'bd' + (b[1] ? ' hot' : '')}>${b[0]}</span>`}</button></${Fragment}>`;
+    return html`<${Fragment} key=${p.id}>${head}<button class=${'it' + (page === p.id || (page === 'cliente' && p.id === 'operacao') ? ' on' : '')} onClick=${() => nav.go(p.id)}><${Icon} n=${p.icon} s=${17}/>${p.l}${b && html`<span class=${'bd' + (b[1] ? ' hot' : '')}>${b[0]}</span>`}</button></${Fragment}>`;
   });
   return html`<div class="shell">
     <aside class="side">
@@ -365,7 +381,7 @@ function Shell({ onLogout }) {
         <button class="search-btn" onClick=${() => setPal(true)}><${Icon} n="search" s=${16}/><span class="t">Buscar ou criar…</span><kbd>Ctrl K</kbd></button>
         <${Btn} v="pri" icon="plus" on=${() => nav.newDeal()} title="Novo lead (N)"><span class="hide-sm">Lead</span></${Btn}>
       </div>
-      <div class="content"><${P} nav=${nav}/></div>
+      <div class="content">${page === 'cliente' ? html`<${ClientWorkspace} id=${clientId} nav=${nav}/>` : html`<${P} nav=${nav}/>`}</div>
     </main>
     <button class="fab" onClick=${() => setFab(!fab)} aria-label="Ações rápidas"><${Icon} n=${fab ? 'x' : 'plus'} s=${24}/></button>
     ${fab && html`<div class="fab-menu" onClick=${() => setFab(false)}>
@@ -376,7 +392,7 @@ function Shell({ onLogout }) {
       <button onClick=${() => nav.newCost()}>💸 Nova despesa</button></div>`}
     <nav class="mobile-nav">${[['hoje', 'home', 'Hoje'], ['pipeline', 'kanban', 'Pipeline'], ['followups', 'bell', 'Follow-ups'], ['financeiro', 'wallet', 'Financeiro']].map(([id, ic, l]) => html`<button key=${id} class=${page === id ? 'on' : ''} onClick=${() => nav.go(id)}><${Icon} n=${ic} s=${20}/>${l}</button>`)}
       <button onClick=${() => setMenu(true)}><${Icon} n="list" s=${20}/>Menu</button></nav>
-    ${menu && html`<${Modal} title="Menu" onClose=${() => setMenu(false)}><div class="col">${PAGES.map(p => html`<${Btn} key=${p.id} v=${page === p.id ? 'pri' : ''} icon=${p.icon} on=${() => nav.go(p.id)}>${p.l}</${Btn}>`)}<div class="row between mt12"><${SyncBadge}/><${Btn} sz="sm" icon="logout" on=${onLogout}>Sair</${Btn}></div></div></${Modal}>`}
+    ${menu && html`<${Modal} title="Menu" onClose=${() => setMenu(false)}><div class="col">${pages.map(p => html`<${Btn} key=${p.id} v=${page === p.id ? 'pri' : ''} icon=${p.icon} on=${() => nav.go(p.id)}>${p.l}</${Btn}>`)}<div class="row between mt12"><${SyncBadge}/><${Btn} sz="sm" icon="logout" on=${onLogout}>Sair</${Btn}></div></div></${Modal}>`}
     ${dealId && html`<${DealDrawer} id=${dealId} onClose=${() => setDealId(null)} openWin=${d => nav.win(d)}/>`}
     ${ctId && html`<${ContractDrawer} id=${ctId} onClose=${() => setCtId(null)}/>`}
     ${modal && modal.t === 'deal' && html`<${DealForm} deal=${modal.init} onClose=${() => setModal(null)} onSaved=${d => setDealId(d.id)}/>`}
@@ -384,20 +400,30 @@ function Shell({ onLogout }) {
     ${modal && modal.t === 'cost' && html`<${CostForm} onClose=${() => setModal(null)}/>`}
     ${modal && modal.t === 'lose' && html`<${LoseModal} deal=${modal.d} onClose=${() => setModal(null)}/>`}
     ${modal && modal.t === 'win' && html`<${ContractForm} deal=${modal.d} onClose=${() => setModal(null)} init=${(() => { const d = modal.d; const pr = prodOf(S, d.productId) || S.products[0]; return { productId: pr.id, kind: pr.kind, value: d.mrr || pr.price, setupValue: d.setup || '', clientName: d.company || d.name, channelId: d.channelId, ownerId: d.ownerId || CURRENT_USER.id, phone: d.phone, email: d.email, _typing: true }; })()}/>`}
-    ${pal && html`<${Palette} onClose=${() => setPal(false)} nav=${nav} pages=${PAGES}/>`}
+    ${preview && html`<div style=${{ position: 'fixed', inset: 0, zIndex: 150, background: 'var(--bg)', overflowY: 'auto' }}><${ClientPortal} clientId=${preview} preview=${true} onLogout=${() => setPreview(null)}/></div>`}
+    ${pal && html`<${Palette} onClose=${() => setPal(false)} nav=${nav} pages=${pages}/>`}
     <${Toasts}/><${TipLayer}/>
   </div>`;
 }
 function App() {
+  const [sess, setSess] = useState(() => LS.get('vos7_session', null));
+  const logout = () => {
+    LS.set('vos7_session', null);
+    try { if (!store.pending) { window.__vosNoPersist = true; localStorage.removeItem('vos7_cache'); Object.keys(localStorage).filter(k => k.startsWith('vos7_doc_')).forEach(k => localStorage.removeItem(k)); } } catch (e) { /* sem storage */ }
+    setSess(null); if (!store.pending && MODE === 'remote') location.reload();
+  };
+  if (sess && sess.role === 'cl' && sess.clientId) return html`<${Fragment}><${ClientPortal} clientId=${sess.clientId} onLogout=${logout}/><${Toasts}/><${TipLayer}/></${Fragment}>`;
+  if (!sess || !sess.user) return html`<${Fragment}><${Login} onOk=${() => setSess(LS.get('vos7_session', null))} onClient=${() => setSess(LS.get('vos7_session', null))}/><${Toasts}/></${Fragment}>`;
+  return html`<${AgencyApp} sess=${sess} setSess=${setSess} logout=${logout}/>`;
+}
+function AgencyApp({ sess, setSess, logout }) {
   const db = useDB();
-  const [user, setUser] = useState(() => { const s = LS.get('vos7_session', null); return s && s.user ? s.user : null; });
   const [ready, setReady] = useState(MODE === 'local' || !!store.data.settings || vals(store.data.deals).length > 0);
   useEffect(() => {
     store.load().then(() => setReady(true));
     const iv = setInterval(() => { if (document.visibilityState === 'visible' && MODE === 'remote') { if (store.pending) store.flush(); else store.load(); } }, 45000);
     return () => clearInterval(iv);
   }, []);
-  // semente: cadências padrão (ids fixos = idempotente)
   useEffect(() => {
     if (!ready || store.status === 'offline' || store.status === 'loading') return;
     if (!db.S.seeded) {
@@ -406,10 +432,10 @@ function App() {
     }
   }, [ready, store.status]);
   if (!ready) return html`<div class="boot">Conectando ao banco da Visions…</div>`;
-  const member = user && db.S.team.find(t => t.id === user);
-  if (!member) return html`<${Fragment}><${Login} onOk=${setUser}/><${Toasts}/></${Fragment}>`;
-  CURRENT_USER = member;
-  return html`<${Shell} onLogout=${() => { LS.set('vos7_session', null); setUser(null); }}/>`;
+  const member = sess && sess.user && db.S.team.find(t => t.id === sess.user);
+  if (!member) { setTimeout(logout, 0); return html`<div class="boot">Saindo…</div>`; }
+  CURRENT_USER = Object.assign({}, member, { role: sess.role === 'team' ? 'team' : 'ag' });
+  return html`<${Shell} onLogout=${logout}/>`;
 }
 
 applyTheme();

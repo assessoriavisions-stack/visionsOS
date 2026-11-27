@@ -253,7 +253,7 @@ function createStore() {
     data = Object.assign({}, data, { [op.coll]: m });
   };
   queue.forEach(applyOp); // alterações ainda não enviadas continuam visíveis após recarregar
-  window.addEventListener('beforeunload', () => { clearTimeout(saveT); LS.set(CACHE_KEY, data); });
+  window.addEventListener('beforeunload', () => { clearTimeout(saveT); if (!window.__vosNoPersist) LS.set(CACHE_KEY, data); });
   const pathOf = op => NS + op.coll + (op.coll === 'settings' ? '' : '/' + cleanKey(op.id));
   async function flush() {
     if (MODE !== 'remote' || !queue.length) return;

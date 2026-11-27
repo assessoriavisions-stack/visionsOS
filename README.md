@@ -80,6 +80,16 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 
 **Importar o painel antigo**: Configurações → Importar dados → "Importar o painel semanal antigo". Você copia os dados no navegador onde usa o painel, com um comando no console que só copia e não altera nada, e cola no sistema. Como reserva, existem também os dados transcritos das capturas de tela de 26/11, mas a Life Embalagens entra só com os totais.
 
+### Clientes · operação e portal do cliente (antes no sistema antigo)
+- **Clientes · operação**: o pipeline dos clientes (kick-off → gestão) em kanban com arrastar e soltar, arquivados e o MRR de cada um vindo dos contratos.
+- **Área de trabalho do cliente**, com as abas **Briefing, Posts, Relatório, CRM, Checklist, Roteiro e Mapas mentais**.
+  - Posts seguem o mesmo fluxo de etapas do sistema antigo. As etapas do cliente (aprovação de roteiro, envio de material etc.) geram pendências para ele, com prazo.
+  - Relatório: métricas do CRM do cliente + painel semanal de tráfego do cliente vinculado.
+- **Portal do cliente**: no login, "Sou cliente" + código de acesso. O cliente vê as mesmas 7 abas, aprova posts, pede ajuste e marca "material enviado". No checklist ele só vê os itens marcados como visíveis. O botão "Ver como cliente" abre essa visão para conferência.
+  - O navegador do cliente não baixa contratos, cobranças nem dados financeiros da agência.
+- **Login da equipe**: modo "Equipe" (senha própria), que vê só a operação e o painel semanal.
+- Usa **as mesmas chaves do sistema antigo** (`vos6_clients`, `vos6_c<id>_posts`, `_briefing`, `_crm`, `_ck`, `_rot`, `_mapas`, `_todos`), então nada foi migrado nem copiado: os dois sistemas mostram os mesmos dados enquanto o antigo não for desligado. Os códigos de acesso dos clientes continuam os mesmos.
+
 ### Metas e calculadoras
 - **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
 - **Calculadora de metas & CAC** (funil reverso, no estilo Visions Tracking): parte da meta de novo MRR e calcula vendas, reuniões, leads e investimento. Mostra CAC projetado × CAC máximo (LTV ÷ 3), LTV:CAC, payback, custo por reunião e diagnóstico. O botão "Usar meus números reais" preenche com os últimos 90 dias, e "Salvar metas" grava direto nas metas do mês.
@@ -142,11 +152,13 @@ src/
   10-engine.js          cálculos puros: cobranças/parcelas, competência × caixa, funil, CAC, calculadoras
   20-ui.js              componentes (campos, modais, gráficos SVG com tooltip)
   30-comercial.js       pipeline, ficha do lead, cadências, follow-ups, prospecção, análise
+  35-operacao.js        clientes · operação: pipeline, área de trabalho (briefing, posts, relatório, CRM, checklist, roteiro, mapas)
   40-financeiro.js      visão geral, recebíveis, contratos, despesas, clientes
   45-cobranca.js        Asaas (emissão, sincronização, conciliação) e lembretes do exterior
   50-metas.js           metas e calculadoras
   55-performance.js     painel semanal de clientes (tráfego, ROAS, CPL, CAC, meta)
-  60-app.js             Hoje, configurações, importação, login, navegação
+  60-app.js             Hoje, configurações, importação, login (agência/equipe/cliente), navegação
+  65-portal.js          portal do cliente
 build.js                gera o index.html único (e dist/index.html):  node build.js
 netlify/functions/      asaas.mjs (ponte segura com a API) e asaas-webhook.mjs (baixa automática)
 ```
@@ -155,7 +167,7 @@ Visual: paleta do painel Visions (azul `#4C6FE0` como cor principal, azul-marinh
 
 Stack: React 18 + [htm](https://github.com/developit/htm) via CDN, sem etapa de compilação além do `build.js`.
 
-**Dados** (Firebase RTDB, em `/vos/vos7_<coleção>/<id>`): `deals`, `cadences`, `prospect` (contadores por dia/pessoa), `spend` (investimento por canal/mês), `goals`, `clients`, `contracts`, `payments` (baixas; as cobranças são geradas dos contratos com IDs determinísticos), `costs`, `perf` (semanas do painel de clientes) e `asaas` (cópia das cobranças do Asaas, ligadas pelo `externalReference` = ID da cobrança), além de `vos7_settings`. Cada item é gravado separadamente, então duas pessoas editando ao mesmo tempo não apagam o trabalho uma da outra.
+**Dados** (Firebase RTDB, em `/vos/vos7_<coleção>/<id>`): `deals`, `cadences`, `prospect` (contadores por dia/pessoa), `spend` (investimento por canal/mês), `goals`, `clients`, `contracts`, `payments` (baixas; as cobranças são geradas dos contratos com IDs determinísticos), `costs`, `perf` (semanas do painel de clientes) e `asaas` (cópia das cobranças do Asaas, ligadas pelo `externalReference` = ID da cobrança), além de `vos7_settings`. A operação e o portal leem e gravam as chaves `vos6_*` do sistema antigo (documento inteiro por chave); se a leitura de uma chave falhar, o sistema não grava nela, para não sobrescrever dados. Cada item é gravado separadamente, então duas pessoas editando ao mesmo tempo não apagam o trabalho uma da outra.
 
 ### ⚠️ Segurança do Firebase
 O banco atual (`visions-os2-default-rtdb`) é acessado **sem autenticação**: quem tiver a URL consegue ler e gravar, inclusive dados de clientes e financeiros. A senha do sistema só protege a tela, não o banco. Recomendo, como próximo passo, ativar o Firebase Authentication e travar as regras do Realtime Database.
