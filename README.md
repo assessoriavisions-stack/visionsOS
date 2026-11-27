@@ -78,6 +78,8 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 - **% da meta** compara o faturamento do período com a meta mensal × nº de meses do período.
 - **Ticket médio** = faturamento via tráfego ÷ conversões. O painel antigo fazia a média simples das semanas, contando as semanas sem venda como zero.
 
+**Quem aparece no painel**: todo cliente com contrato de tráfego (Tráfego Brasil ou EUA, inclusive em mix) ativo ou em aviso. Quando o contrato termina, o cliente some; "Mostrar encerrados" traz o histórico de volta. Clientes criados no próprio painel sem contrato aparecem com "sem contrato" e uma opção para juntar com o cliente da carteira.
+
 **Importar o painel antigo**: Configurações → Importar dados → "Importar o painel semanal antigo". Você copia os dados no navegador onde usa o painel, com um comando no console que só copia e não altera nada, e cola no sistema. Como reserva, existem também os dados transcritos das capturas de tela de 26/11, mas a Life Embalagens entra só com os totais.
 
 ### Clientes · operação e portal do cliente (antes no sistema antigo)

@@ -83,6 +83,19 @@ function PerfWeekForm({ cl, date, onClose }) {
 }
 
 /* ---------- cliente: meta, benchmarks, modelo e campanhas ---------- */
+function MergeBox({ db, cl, status, onDone }) {
+  const opts = vals(db.clients).filter(c => c.id !== cl.id && !c.mergedInto && status[c.id] === 'ativo').sort((a, b) => a.name.localeCompare(b.name));
+  const words = normName(cl.name);
+  const guess = opts.find(c => normName(c.name).some(w => words.includes(w)));
+  const [to, setTo] = useState(guess ? guess.id : '');
+  return html`<div class="callout warn mb16 no-print"><${Icon} n="alert" s=${18}/><div style=${{ flex: 1 }}>
+    <b class="t">${cl.name} não está ligado a nenhum contrato</b>
+    Ele foi criado pela importação do painel antigo. Se é o mesmo cliente da carteira, junte os dois: as semanas e campanhas passam para o cliente com contrato, e ele some do painel quando o contrato de tráfego terminar.
+    <div class="row wrap mt8" style=${{ gap: 8 }}><select class="inp sm" style=${{ width: 260 }} value=${to} onChange=${e => setTo(e.target.value)}><option value="">Escolha o cliente da carteira…</option>${opts.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}</select>
+      <${Btn} sz="sm" v="pri" disabled=${!to} on=${() => { if (!confirm('Juntar "' + cl.name + '" com "' + db.clients[to].name + '"? As ' + perfRecsOf(db, cl.id).length + ' semana(s) registradas passam para ele.')) return; mergePerfClient(db, cl.id, to); onDone(to); toast('Clientes unificados.'); }}>Juntar</${Btn}>
+      <span class="xs faint">Se não for cliente de tráfego com contrato, pode ignorar.</span></div>
+  </div></div>`;
+}
 function PerfClientForm({ cl, onClose, onSaved }) {
   const S = settingsOf(store.data);
   const [f, setF] = useState(() => Object.assign({ name: '', perfGoal: '', perfRoas: S.perfBench.roas, perfCacShare: S.perfBench.cacShare, perfCac: '', perfModel: 'agendamento' }, cl || {}, { campaigns: JSON.parse(JSON.stringify(campaignsOf(cl))) }));
@@ -137,9 +150,37 @@ function Bench({ l, cur, exp, fmt, lowerBetter, note }) {
 }
 
 /* ---------- página ---------- */
+/* quem aparece no painel: clientes com contrato de tráfego ativo (ou em aviso).
+   Contrato de tráfego encerrado = some do painel (o histórico continua em "Mostrar encerrados"). */
+const TRAFFIC_PRODS = ['trafego', 'trafego_eua'];
+const isTrafficContract = k => TRAFFIC_PRODS.includes(k.productId) || (k.productShares || k.mix || []).some(m => m && TRAFFIC_PRODS.includes(m.productId || m.id));
+function trafficStatus(db, c) {
+  const all = vals(db.contracts).filter(k => k.clientId === c.id);
+  const tr = all.filter(isTrafficContract);
+  if (tr.some(k => k.kind !== 'projeto' && contractStatus(k) !== 'encerrado')) return 'ativo';
+  if (tr.length) return 'encerrado';
+  return all.length ? 'outro' : 'sem_contrato';
+}
+/* junta um cliente do painel (criado pela importação do painel antigo) com o cliente da carteira que tem o contrato */
+function mergePerfClient(db, fromId, toId) {
+  const a = db.clients[fromId], b = db.clients[toId]; if (!a || !b) return;
+  const F = ['campaigns', 'perfGoal', 'perfRoas', 'perfCacShare', 'perfCac', 'perfModel'];
+  const add = {}; F.forEach(f => { const empty = v => v == null || v === '' || (Array.isArray(v) && !v.length); if (!empty(a[f]) && empty(b[f])) add[f] = a[f]; });
+  if (Array.isArray(a.campaigns) && Array.isArray(b.campaigns) && b.campaigns.length) add.campaigns = b.campaigns.concat(a.campaigns.filter(c => !b.campaigns.some(x => x.id === c.id)));
+  store.put('clients', Object.assign({}, b, add, { perf: true }));
+  perfRecsOf(db, fromId).forEach(r => store.put('perf', Object.assign({}, r, { clientId: toId })));
+  store.put('clients', Object.assign({}, a, { mergedInto: toId, perf: false }));
+}
+const normName = s => String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9 ]/g, ' ').split(' ').filter(w => w.length > 2 && !['clinica', 'loja', 'pet', 'shop', 'petshop'].includes(w));
 function PerformancePage() {
   const db = useDB();
-  const clients = vals(db.clients).filter(c => c.perf || perfRecsOf(db, c.id).length).sort((a, b) => a.name.localeCompare(b.name));
+  const [showEnded, setShowEnded] = useState(false);
+  const status = {}; vals(db.clients).forEach(c => (status[c.id] = trafficStatus(db, c)));
+  const hasData = c => c.perf || perfRecsOf(db, c.id).length;
+  const clients = vals(db.clients).filter(c => !c.mergedInto && !c.archived && c.name)
+    .filter(c => status[c.id] === 'ativo' || (status[c.id] === 'sem_contrato' && c.perf) || (showEnded && hasData(c)))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const tagOf = c => (status[c.id] === 'ativo' ? '' : status[c.id] === 'sem_contrato' ? ' · sem contrato' : ' · encerrado');
   const [sel, setSel] = useState(LS.get('vos7_perfcl', ''));
   const cl = db.clients[sel] && clients.some(c => c.id === sel) ? db.clients[sel] : clients[0];
   useEffect(() => { if (cl) LS.set('vos7_perfcl', cl.id); }, [cl && cl.id]);
@@ -179,8 +220,11 @@ function PerformancePage() {
     ? [[money2(t.spend), 'Gasto no período'], [num(t.leads), 'Leads no período'], [Number.isFinite(t.cpl) ? money2(t.cpl) : '—', 'Custo por lead'], [pct(t.convStep), 'Conversão leads → reunião'], [Number.isFinite(t.costStep) ? money2(t.costStep) : '—', 'Custo por reunião'], [Number.isFinite(t.cac) ? money2(t.cac) : '—', 'CAC (por venda fechada)'], [pct(t.close), 'Taxa de fechamento'], [Number.isFinite(t.ticket) ? money2(t.ticket) : '—', 'Ticket médio'], [num(wDates.length), 'Semanas no período']]
     : [[money2(t.spend), 'Gasto no período'], [num(t.leads), 'Leads no período'], [Number.isFinite(t.cpl) ? money2(t.cpl) : '—', 'Custo por lead'], [pct(t.convStep), 'Conversão leads → agendamento'], [Number.isFinite(t.costStep) ? money2(t.costStep) : '—', 'Custo por agendamento'], [Number.isFinite(t.cac) ? money2(t.cac) : '—', 'CAC (por agendamento)'], [Number.isFinite(t.ticket) ? money2(t.ticket) : '—', 'Ticket médio'], [num(wDates.length), 'Semanas no período']];
   return html`<div class="perf-page">
+    ${status[cl.id] === 'sem_contrato' && html`<${MergeBox} key=${cl.id} db=${db} cl=${cl} status=${status} onDone=${setSel}/>`}
     <${PageH} t="Painel semanal de clientes" s=${'Tráfego, aquisição e metas por cliente e campanha · ' + M.l}>
-      <div style=${{ width: 220 }}><${Select} v=${cl.id} on=${v => (v === '__new' ? setEdit({}) : setSel(v))} opts=${clients.map(c => ({ v: c.id, l: c.name })).concat({ v: '__new', l: '+ Novo cliente' })}/></div>
+      <div style=${{ width: 220 }}><${Select} v=${cl.id} on=${v => (v === '__new' ? setEdit({}) : setSel(v))} opts=${clients.map(c => ({ v: c.id, l: c.name + tagOf(c) })).concat({ v: '__new', l: '+ Novo cliente' })}/></div>
+      <label class="row xs muted" style=${{ gap: 6, cursor: 'pointer' }}><input type="checkbox" checked=${showEnded} onChange=${e => setShowEnded(e.target.checked)}/>Mostrar encerrados</label>
+      <span class="xs faint">${clients.filter(c => status[c.id] === 'ativo').length} clientes com tráfego ativo</span>
       <${Btn} v="ghost" icon="gear" on=${() => setEdit(cl)} title="Configurar cliente e campanhas"/>
       <button class="btn" onClick=${setGoal} title="Editar meta">Meta mensal: <b>${goal ? money2(goal) : 'definir'}</b></button>
       <${Btn} icon="down" on=${exportPdf}>Exportar PDF</${Btn}>
