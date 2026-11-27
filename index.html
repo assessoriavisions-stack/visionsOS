@@ -417,7 +417,7 @@ const DEFAULT_SETTINGS = {
     { id: 'ia', name: 'Implantação IA Humanizada', kind: 'projeto', price: 5000, currency: 'BRL', color: 's5' },
     { id: 'social', name: 'Gestão de Redes Sociais', kind: 'recorrente', price: 2000, currency: 'BRL', color: 's2' },
     { id: 'conteudo', name: 'Gestão de Marketing (antigo)', kind: 'recorrente', price: 0, currency: 'BRL', legacy: true, color: 's8' },
-    { id: 'site', name: 'Site / Landing Page (antigo)', kind: 'projeto', price: 0, currency: 'BRL', legacy: true, color: 's8' }
+    { id: 'site', name: 'Site / Landing Page', kind: 'projeto', price: 0, currency: 'BRL', hidden: true, color: 's4' }
   ],
 
   channels: [
@@ -1437,7 +1437,7 @@ function DealForm({ deal, onClose, onSaved }) {
       <${Input} label="WhatsApp" v=${f.phone} on=${F('phone')} ph="(11) 99999-9999"/>
       <${Input} label="Instagram" v=${f.instagram} on=${F('instagram')} ph="@perfil"/>
       <${Field} label="Canal de origem" cls="span3"><${Chips} v=${f.channelId} on=${F('channelId')} opts=${S.channels.map(c => ({ v: c.id, l: c.name }))}/></${Field}>
-      <${Field} label="Produto de interesse" cls="span3"><${Chips} v=${f.productId} on=${pickProduct} opts=${S.products.filter(p => !p.legacy || p.id === f.productId).map(p => ({ v: p.id, l: p.name }))}/></${Field}>
+      <${Field} label="Produto de interesse" cls="span3"><${Chips} v=${f.productId} on=${pickProduct} opts=${S.products.filter(p => (!p.legacy && !p.hidden) || p.id === f.productId).map(p => ({ v: p.id, l: p.name }))}/></${Field}>
       <${Money} label=${(prodOf(S, f.productId) || {}).kind === 'projeto' ? 'Valor do projeto' : 'Mensalidade (MRR)'} v=${f.mrr} on=${F('mrr')}/>
       <${Money} label="Setup / implantação" v=${f.setup} on=${F('setup')}/>
       <${Select} label="Responsável" v=${f.ownerId} on=${F('ownerId')} opts=${S.team.map(t => ({ v: t.id, l: t.name }))}/>
@@ -1883,7 +1883,9 @@ const methodL = v => (METHODS.find(m => m.v === v) || {}).l || v || '—';
 const ST_TAG = { pago: ['good', 'Pago'], atrasado: ['bad', 'Atrasado'], pendente: ['', 'A receber'], cancelado: ['', 'Cancelado'], problema: ['bad', 'Estorno/contestação'] };
 const ctStatusTag = s => ({ ativo: ['good', 'Ativo'], aviso: ['warn', 'Em aviso'], encerrado: ['', 'Encerrado'], projeto: ['info', 'Projeto'] }[s] || ['', s]);
 const cv = (c, v) => (c.currency && c.currency !== 'BRL' ? moneyCur(v, c.currency) : money(v));
-const condText = c => c.kind === 'espelho' ? 'Espelho do Asaas: todas as cobranças do cliente' + (c.value ? ' · ≈ ' + cv(c, c.value) + '/mês' : '') : c.kind === 'recorrente'
+const mixText = c => (Array.isArray(c.mix) && c.mix.length ? ' · ' + c.mix.map(m => prodName(settingsOf(store.data), m.productId).split(' (')[0] + ' ' + money(m.value)).join(' + ') : '');
+const condText = c => mixText(c).replace(/^ · /, '') ? condText0(c) + mixText(c) : condText0(c);
+const condText0 = c => c.kind === 'espelho' ? 'Espelho do Asaas: todas as cobranças do cliente' + (c.value ? ' · ≈ ' + cv(c, c.value) + '/mês' : '') : c.kind === 'recorrente'
   ? cv(c, c.value) + '/mês · dia ' + (c.payDay || '—') + (c.setupValue > 0 ? ' + setup ' + cv(c, c.setupValue) + (c.setupInstallments > 1 ? ' em ' + c.setupInstallments + 'x' : '') : '')
   : (Number(c.downPayment) > 0 ? 'entrada ' + cv(c, c.downPayment) + ' + ' : '') + (Number(c.installments) > 1 ? c.installments + 'x de ' + cv(c, (c.value - (Number(c.downPayment) || 0)) / c.installments) : (Number(c.downPayment) > 0 ? 'saldo' : 'à vista')) + ' · total ' + cv(c, c.value);
 
@@ -2029,7 +2031,7 @@ function ReceivablesPage({ nav }) {
 /* ---------- contratos ---------- */
 function ContractForm({ init, onClose, onSaved, deal }) {
   const db = useDB(); const S = db.S;
-  const firstProd = S.products.find(p => !p.legacy) || S.products[0] || {};
+  const firstProd = S.products.find(p => !p.legacy && !p.hidden) || S.products[0] || {};
   const [f, setF] = useState(() => Object.assign({
     clientId: '', clientName: '', productId: firstProd.id, kind: firstProd.kind || 'recorrente', value: firstProd.price || '', payDay: '10',
     startDate: today(), firstDue: today(), installments: 1, method: 'pix', setupValue: firstProd.setup || '', setupInstallments: 1, setupFirstDue: today(),
@@ -2089,7 +2091,7 @@ function ContractForm({ init, onClose, onSaved, deal }) {
       : html`<div><input class="inp" list="vos-clients" value=${f.clientName} placeholder="Nome do cliente / empresa" onChange=${e => { const v = e.target.value; const ex = clients.find(c => c.name === v); setF({ ...f, clientName: v, clientId: ex ? ex.id : '', _typing: !ex }); }}/>
           <datalist id="vos-clients">${clients.map(c => html`<option key=${c.id} value=${c.name}/>`)}</datalist></div>`}</${Field}>
       <${Select} label="Canal de origem (p/ CAC)" v=${f.channelId} on=${F('channelId')} ph="—" opts=${S.channels.map(c => ({ v: c.id, l: c.name }))}/>
-      <${Field} label="Produto" cls="span3"><${Chips} v=${f.productId} on=${pickProd} opts=${S.products.filter(p => !p.legacy || p.id === f.productId).map(p => ({ v: p.id, l: p.name + (p.price ? ' · ' + (p.currency && p.currency !== 'BRL' ? moneyCur(p.price, p.currency) : money(p.price)) : '') }))}/></${Field}>
+      <${Field} label="Produto" cls="span3"><${Chips} v=${f.productId} on=${pickProd} opts=${S.products.filter(p => (!p.legacy && !p.hidden) || p.id === f.productId).map(p => ({ v: p.id, l: p.name + (p.price ? ' · ' + (p.currency && p.currency !== 'BRL' ? moneyCur(p.price, p.currency) : money(p.price)) : '') }))}/></${Field}>
       ${prodNow.allowDiscount && html`<div class="span3 card tight" style=${{ background: 'var(--surface-2)' }}><div class="form c3">
         <${Field} label="Preço de tabela"><div class="b num" style=${{ padding: '9px 0' }}>${money(n0(f.listPrice || prodNow.price))}</div></${Field}>
         <${Input} label="Desconto" v=${f.discount} on=${setDiscount} ph="Ex: 500 ou 10%" hint="Em reais ou em %"/>
@@ -2374,6 +2376,11 @@ function suggestProduct(c, S) {
   }
   return has(s) ? s : '';
 }
+const productShares = c => {
+  const mix = Array.isArray(c.mix) ? c.mix.filter(m => m && m.productId && n0(m.value) > 0) : [];
+  const tot = sum(mix, m => m.value);
+  return mix.length && tot > 0 ? mix.map(m => ({ id: m.productId, share: n0(m.value) / tot })) : [{ id: c.productId, share: 1 }];
+};
 function RevenueByProduct({ db, ym, inv, nav }) {
   const S = db.S;
   const [showInfo, setShowInfo] = useState(false); const [fix, setFix] = useState(false);
@@ -2381,16 +2388,18 @@ function RevenueByProduct({ db, ym, inv, nav }) {
   const keyOf = id => (isLegacy(id) ? '__sem' : id);
   const cts = vals(db.contracts);
   const rows = {}; const R = k => (rows[k] = rows[k] || { k, mrr: 0, prev: 0, rec: 0, comp: 0, clients: new Set() });
-  cts.filter(c => contractActiveIn(c, ym)).forEach(c => { const r = R(keyOf(c.productId)); r.mrr += brlValue(c); r.clients.add(c.clientId); });
-  inv.filter(i => i.ym === ym && i.status !== 'cancelado' && !isInadimplente(i)).forEach(i => { const r = R(keyOf(i.productId)); r.prev += i.amount; r.clients.add(i.clientId); });
-  inv.filter(i => i.status === 'pago' && ymOf(i.paidAt) === ym).forEach(i => { R(keyOf(i.productId)).rec += i.paidAmount; });
-  inv.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado').forEach(i => { R(keyOf(i.productId)).comp += i.amount; });
-  cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym).forEach(c => { R(keyOf(c.productId)).comp += brlValue(c); });
+  const sh = c => productShares(c || {});
+  const add = (c, field, v, cl) => sh(c).forEach(x => { const r = R(keyOf(x.id)); r[field] += v * x.share; if (cl) r.clients.add(cl); });
+  cts.filter(c => contractActiveIn(c, ym)).forEach(c => add(c, 'mrr', brlValue(c), c.clientId));
+  inv.filter(i => i.ym === ym && i.status !== 'cancelado' && !isInadimplente(i)).forEach(i => add(db.contracts[i.contractId], 'prev', i.amount, i.clientId));
+  inv.filter(i => i.status === 'pago' && ymOf(i.paidAt) === ym).forEach(i => add(db.contracts[i.contractId], 'rec', i.paidAmount));
+  inv.filter(i => i.kind === 'mensal' && i.origYm === ym && i.status !== 'cancelado').forEach(i => add(db.contracts[i.contractId], 'comp', i.amount));
+  cts.filter(c => c.kind === 'projeto' && !c.canceled && ymOf(c.startDate) === ym).forEach(c => add(c, 'comp', brlValue(c)));
   const list = Object.values(rows).filter(r => r.mrr || r.prev || r.rec || r.comp).sort((a, b) => b.rec + b.prev - (a.rec + a.prev));
   const tot = { mrr: sum(list, r => r.mrr), prev: sum(list, r => r.prev), rec: sum(list, r => r.rec), comp: sum(list, r => r.comp) };
   const nameOf = k => (k === '__sem' ? 'Sem produto definido (contratos antigos)' : prodName(S, k));
   const colorOf = k => (k === '__sem' ? 'var(--border-strong)' : 'var(--' + ((S.products.find(p => p.id === k) || {}).color || 's1') + ')');
-  const toFix = cts.filter(c => isLegacy(c.productId) && (contractStatus(c) !== 'encerrado'));
+  const toFix = cts.filter(c => isLegacy(c.productId) && !(Array.isArray(c.mix) && c.mix.length) && !neverBilled(c) && (contractStatus(c) !== 'encerrado'));
   return html`<div class="card flush mb16">
     <div class="lgroup"><span>De onde vem a receita — ${monthLabel(ym)}</span><span style=${{ textTransform: 'none', letterSpacing: 0 }}><button class="btn xs ghost" onClick=${() => setShowInfo(!showInfo)}>${showInfo ? 'Fechar' : 'ⓘ O que é cada número?'}</button></span></div>
     ${showInfo && html`<div class="grid g4" style=${{ padding: 14, gap: 10, background: 'var(--surface-2)', borderBottom: '1px solid var(--border)' }}>
@@ -2411,7 +2420,7 @@ function RevenueByProduct({ db, ym, inv, nav }) {
 function ClassifyProducts({ list, onClose }) {
   const db = useDB(); const S = db.S;
   const [pick, setPick] = useState(() => Object.fromEntries(list.map(c => [c.id, suggestProduct(c, S)])));
-  const opts = S.products.filter(p => !p.legacy).map(p => ({ v: p.id, l: p.name }));
+  const opts = S.products.filter(p => !p.legacy).map(p => ({ v: p.id, l: p.name + (p.hidden ? ' (fora do catálogo)' : '') }));
   const save = () => {
     let n = 0; list.forEach(c => { if (pick[c.id] && pick[c.id] !== c.productId) { store.put('contracts', Object.assign({}, store.data.contracts[c.id], { productId: pick[c.id] })); n++; } });
     toast(n + ' contrato(s) classificados.'); onClose();
@@ -3476,7 +3485,7 @@ function SettingsPage() {
     </div>`}
     ${tab === 'produtos' && html`<div class="card"><div class="card-h"><h3>Produtos e preços de tabela</h3><span class="sub">aparecem na hora de cadastrar leads e vendas · "antigo" = não aparece mais para novas vendas</span></div>
       <${ListEditor} items=${S.products} onChange=${v => set({ products: v })} newItem=${{ name: 'Novo produto', kind: 'recorrente', price: 0, currency: 'BRL' }}
-        cols=${[{ k: 'name', l: 'Nome', w: 260 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'recorrente', l: 'Recorrente (mensal)' }, { v: 'projeto', l: 'Projeto / único' }] }, { k: 'price', l: 'Preço', type: 'number', w: 100 }, { k: 'currency', l: 'Moeda', type: 'select', opts: ['BRL', 'USD', 'EUR'].map(c => ({ v: c, l: c })), w: 80 }, { k: 'allowDiscount', l: 'Desconto', type: 'bool', w: 70 }, { k: 'legacy', l: 'Antigo', type: 'bool', w: 70 }]}/></div>`}
+        cols=${[{ k: 'name', l: 'Nome', w: 260 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'recorrente', l: 'Recorrente (mensal)' }, { v: 'projeto', l: 'Projeto / único' }] }, { k: 'price', l: 'Preço', type: 'number', w: 100 }, { k: 'currency', l: 'Moeda', type: 'select', opts: ['BRL', 'USD', 'EUR'].map(c => ({ v: c, l: c })), w: 80 }, { k: 'allowDiscount', l: 'Desconto', type: 'bool', w: 70 }, { k: 'hidden', l: 'Fora do catálogo', type: 'bool', w: 80 }, { k: 'legacy', l: 'Antigo (sem classificação)', type: 'bool', w: 90 }]}/></div>`}
     ${tab === 'canais' && html`<div class="card"><div class="card-h"><h3>Canais de aquisição</h3><span class="sub">outbound aparece na prospecção diária</span></div>
       <${ListEditor} items=${S.channels} onChange=${v => set({ channels: v })} newItem=${{ name: 'Novo canal', kind: 'outbound' }}
         cols=${[{ k: 'name', l: 'Nome', w: 260 }, { k: 'kind', l: 'Tipo', type: 'select', opts: [{ v: 'outbound', l: 'Outbound (prospecção ativa)' }, { v: 'pago', l: 'Tráfego pago' }, { v: 'inbound', l: 'Inbound / orgânico' }, { v: 'indicacao', l: 'Indicação' }] }]}/></div>`}

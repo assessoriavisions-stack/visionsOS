@@ -76,7 +76,7 @@ const DEFAULT_SETTINGS = {
     { id: 'ia', name: 'Implantação IA Humanizada', kind: 'projeto', price: 5000, currency: 'BRL', color: 's5' },
     { id: 'social', name: 'Gestão de Redes Sociais', kind: 'recorrente', price: 2000, currency: 'BRL', color: 's2' },
     { id: 'conteudo', name: 'Gestão de Marketing (antigo)', kind: 'recorrente', price: 0, currency: 'BRL', legacy: true, color: 's8' },
-    { id: 'site', name: 'Site / Landing Page (antigo)', kind: 'projeto', price: 0, currency: 'BRL', legacy: true, color: 's8' }
+    { id: 'site', name: 'Site / Landing Page', kind: 'projeto', price: 0, currency: 'BRL', hidden: true, color: 's4' }
   ],
 
   channels: [

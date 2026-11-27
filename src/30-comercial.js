@@ -110,7 +110,7 @@ function DealForm({ deal, onClose, onSaved }) {
       <${Input} label="WhatsApp" v=${f.phone} on=${F('phone')} ph="(11) 99999-9999"/>
       <${Input} label="Instagram" v=${f.instagram} on=${F('instagram')} ph="@perfil"/>
       <${Field} label="Canal de origem" cls="span3"><${Chips} v=${f.channelId} on=${F('channelId')} opts=${S.channels.map(c => ({ v: c.id, l: c.name }))}/></${Field}>
-      <${Field} label="Produto de interesse" cls="span3"><${Chips} v=${f.productId} on=${pickProduct} opts=${S.products.filter(p => !p.legacy || p.id === f.productId).map(p => ({ v: p.id, l: p.name }))}/></${Field}>
+      <${Field} label="Produto de interesse" cls="span3"><${Chips} v=${f.productId} on=${pickProduct} opts=${S.products.filter(p => (!p.legacy && !p.hidden) || p.id === f.productId).map(p => ({ v: p.id, l: p.name }))}/></${Field}>
       <${Money} label=${(prodOf(S, f.productId) || {}).kind === 'projeto' ? 'Valor do projeto' : 'Mensalidade (MRR)'} v=${f.mrr} on=${F('mrr')}/>
       <${Money} label="Setup / implantação" v=${f.setup} on=${F('setup')}/>
       <${Select} label="Responsável" v=${f.ownerId} on=${F('ownerId')} opts=${S.team.map(t => ({ v: t.id, l: t.name }))}/>
