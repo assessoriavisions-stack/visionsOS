@@ -85,6 +85,7 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 - **Área de trabalho do cliente**, com as abas **Briefing, Posts, Relatório, CRM, Checklist, Roteiro e Mapas mentais**.
   - Posts seguem o mesmo fluxo de etapas do sistema antigo. As etapas do cliente (aprovação de roteiro, envio de material etc.) geram pendências para ele, com prazo.
   - Relatório: métricas do CRM do cliente + painel semanal de tráfego do cliente vinculado.
+- **Abas por cliente**: cada cliente tem as abas do serviço dele (campo `tabs` em `vos6_clients`, editável em "Editar cliente"). Redes sociais, tráfego e Consultoria 360: Briefing, Posts, Relatório, Checklist, Roteiro, Mapas e Instagram. Assessoria comercial: Relatório e Mapas. Sistema: só Briefing. O CRM fica só para quem não usa o Visions Tracking (hoje, a Alquimia). O Relatório sem CRM mostra só o tráfego.
 - **Portal do cliente**: no login, "Sou cliente" + código de acesso. O cliente vê as mesmas 7 abas, aprova posts, pede ajuste e marca "material enviado". No checklist ele só vê os itens marcados como visíveis. O botão "Ver como cliente" abre essa visão para conferência.
   - O navegador do cliente não baixa contratos, cobranças nem dados financeiros da agência.
 - **Login da equipe**: modo "Equipe" (senha própria), que vê só a operação e o painel semanal.

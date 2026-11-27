@@ -50,7 +50,7 @@ function useDoc(key, fallback) {
     return () => clearInterval(iv);
   }, [key]);
   const v = key in docs.cache ? docs.cache[key] : undefined;
-  return [v === undefined || v === null ? fallback : v, val => docSave(key, val), v === undefined];
+  return [v === undefined || v === null ? fallback : v, val => docSave(key, val), !!key && v === undefined];
 }
 function logAct(clId, action, who) {
   const key = V6C(clId, 'activity');
@@ -165,10 +165,12 @@ function OperacaoPage({ nav }) {
   </div>`;
 }
 function ClientOpsForm({ c, list, save, cs, onClose, onCreated }) {
-  const [f, setF] = useState(() => Object.assign({ name: '', segment: '', stage: 'kickoff', responsible: cs[0].id, responsible2: '', onedrive: '', notes: '', code: genCode(), modulos: ['gestao'], funnel: 'consultivo' }, c || {}));
+  const db = useDB();
+  const [f, setF] = useState(() => Object.assign({ tabs: c && c.id ? (Array.isArray(c.tabs) && c.tabs.length ? c.tabs : suggestTabs(c, db.contracts)) : TABS_CONTEUDO }, Object.assign({ name: '', segment: '', stage: 'kickoff', responsible: cs[0].id, responsible2: '', onedrive: '', notes: '', code: genCode(), modulos: ['gestao'], funnel: 'consultivo' }, c || {}), c && c.id && !(Array.isArray(c.tabs) && c.tabs.length) ? { tabs: suggestTabs(c, db.contracts) } : {}));
   const F = k => v => setF(p => ({ ...p, [k]: v }));
   const ok = async () => {
     if (!f.name.trim()) return toast('Informe o nome.');
+    if (!f.tabs || !f.tabs.length) return toast('Escolha pelo menos uma aba.');
     if (list.some(x => x.code === f.code && x.id !== f.id)) return toast('Esse código já existe, gere outro.');
     if (f.id) { await save(list.map(x => (x.id === f.id ? { ...x, ...f, updatedAt: stamp() } : x))); toast('Cliente salvo.'); onClose(); return; }
     const id = uid(); const novo = { ...f, id, createdAt: stamp(), updatedAt: stamp() };
@@ -189,11 +191,34 @@ function ClientOpsForm({ c, list, save, cs, onClose, onCreated }) {
       <${Field} label="Código do portal do cliente"><div class="row"><input class="inp" value=${f.code} onChange=${e => F('code')(e.target.value.toUpperCase())}/><${Btn} sz="sm" on=${() => F('code')(genCode())}>Gerar</${Btn}></div></${Field}>
       <${Input} label="Pasta do Drive / OneDrive" v=${f.onedrive} on=${F('onedrive')} ph="https://…"/>
       <${Textarea} cls="span3" label="Observações" v=${f.notes} on=${F('notes')} rows=${2}/>
+      <${Field} cls="span3" label="Abas do espaço do cliente (o que a equipe e o cliente veem)" hint="O CRM só faz sentido para quem não usa o Visions Tracking. Instagram aparece só para a agência.">
+        <div class="row wrap mb8" style=${{ gap: 6 }}><span class="xs faint">Modelo:</span>${TAB_PRESETS.map(p => html`<${Btn} key=${p.v} sz="xs" on=${() => F('tabs')(p.tabs)}>${p.l}</${Btn}>`)}${f.id && html`<${Btn} sz="xs" v="ghost" on=${() => F('tabs')(suggestTabs(f, db.contracts))}>Sugerir pelos contratos</${Btn}>`}</div>
+        <${Chips} multi=${true} v=${f.tabs} on=${v => F('tabs')(WS_TABS.map(x => x.v).filter(x => v.includes(x)))} opts=${WS_TABS.map(x => ({ v: x.v, l: x.l }))}/>
+      </${Field}>
     </div></${Modal}>`;
 }
 
 /* ---------- espaço do cliente ---------- */
 const WS_TABS = [{ v: 'briefing', l: 'Briefing', icon: 'file' }, { v: 'posts', l: 'Posts', icon: 'image' }, { v: 'relatorio', l: 'Relatório', icon: 'chart' }, { v: 'crm', l: 'CRM', icon: 'users' }, { v: 'ck', l: 'Checklist', icon: 'checksq' }, { v: 'rot', l: 'Roteiro', icon: 'film' }, { v: 'mapas', l: 'Mapas mentais', icon: 'map' }, { v: 'instagram', l: 'Instagram', icon: 'camera', agency: true }];
+/* quais abas cada cliente tem (gravado em vos6_clients[].tabs; o sistema antigo ignora esse campo) */
+const TABS_CONTEUDO = ['briefing', 'posts', 'relatorio', 'ck', 'rot', 'mapas', 'instagram'];
+const TAB_PRESETS = [
+  { v: 'conteudo', l: 'Redes sociais, tráfego ou Consultoria 360', tabs: TABS_CONTEUDO },
+  { v: 'assessoria', l: 'Assessoria comercial', tabs: ['relatorio', 'mapas'] },
+  { v: 'sistema', l: 'Sistema / implantação', tabs: ['briefing'] }
+];
+const PROD_TABS = { social: TABS_CONTEUDO, trafego: TABS_CONTEUDO, trafego_eua: TABS_CONTEUDO, c360: TABS_CONTEUDO, conteudo: TABS_CONTEUDO, assessoria_vendas: ['relatorio', 'mapas'], sistemas: ['briefing'], ia: ['briefing'], site: ['briefing'] };
+function suggestTabs(cl, contracts) {
+  const mine = vals(contracts || {}).filter(k => k.clientId === 'v6c_' + cl.id);
+  const live = mine.filter(k => contractStatus(k) !== 'encerrado');
+  const use = live.length ? live : mine;
+  const prods = new Set(); use.forEach(k => { prods.add(k.productId); (k.productShares || k.mix || []).forEach(m => m && prods.add(m.productId || m.id)); });
+  let set = new Set(); prods.forEach(p => (PROD_TABS[p] || []).forEach(x => set.add(x)));
+  if (!set.size) set = new Set((cl.modulos || []).some(m => ['gestao', 'trafego', 'consultoria'].includes(m)) ? TABS_CONTEUDO : ['briefing']);
+  return WS_TABS.map(x => x.v).filter(v => set.has(v));
+}
+const tabsOf = cl => (Array.isArray(cl.tabs) && cl.tabs.length ? cl.tabs : (cl.modulos || []).some(m => ['gestao', 'trafego', 'consultoria'].includes(m)) ? TABS_CONTEUDO : ['briefing']);
+
 function ClientWorkspace({ id, nav, portal }) {
   const db = useDB();
   const [clients, saveClients, loading] = useDoc(V6('clients'), []);
@@ -207,7 +232,9 @@ function ClientWorkspace({ id, nav, portal }) {
   if (!cl) return html`<div class="card"><${Empty} t="Cliente não encontrado" s=""><${Btn} on=${() => nav.go('operacao')}>Voltar</${Btn}></${Empty}></div>`;
   const stg = PIPE.find(s => s.id === (cl.stage || 'kickoff')) || PIPE[0];
   const cts = vals(db.contracts).filter(k => k.clientId === 'v6c_' + cl.id && contractStatus(k) !== 'encerrado');
-  const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas, instagram: WsInstagram }[portal && tab === 'instagram' ? 'posts' : tab];
+  const myTabs = WS_TABS.filter(x => tabsOf(cl).includes(x.v) && !(portal && x.agency));
+  const cur = myTabs.some(x => x.v === tab) ? tab : (myTabs.find(x => x.v === 'posts') || myTabs[0] || { v: 'briefing' }).v;
+  const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas, instagram: WsInstagram }[cur];
   return html`<div>
     ${!portal && html`<div class="row wrap mb16" style=${{ gap: 14, alignItems: 'flex-start' }}>
       <${Btn} sz="sm" v="ghost" icon="left" on=${() => nav.go('operacao')}>Clientes</${Btn}>
@@ -222,8 +249,8 @@ function ClientWorkspace({ id, nav, portal }) {
         <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
       </div>
     </div>`}
-    <${Tabs} v=${tab} on=${setTab} opts=${WS_TABS.filter(t => !(portal && t.agency))}/>
-    <${P} cl=${cl} cs=${cs} portal=${portal} nav=${nav}/>
+    <${Tabs} v=${cur} on=${setTab} opts=${myTabs}/>
+    <${P} cl=${cl} cs=${cs} portal=${portal} nav=${nav} crmOn=${tabsOf(cl).includes('crm')}/>
     ${edit && html`<${ClientOpsForm} c=${cl} list=${asArr(clients)} save=${saveClients} cs=${cs} onClose=${() => setEdit(false)}/>`}
   </div>`;
 }
@@ -407,9 +434,9 @@ function LeadForm({ cl, lead, all, stages, save, portal, onClose }) {
 }
 
 /* ---------- relatório (CRM + painel de tráfego do cliente) ---------- */
-function WsReport({ cl, portal }) {
+function WsReport({ cl, portal, crmOn }) {
   const db = useDB();
-  const [crm, , loading] = useDoc(V6C(cl.id, 'crm'), []);
+  const [crm, , loading] = useDoc(crmOn ? V6C(cl.id, 'crm') : null, []);
   const [pPerf] = useDoc(portal ? 'vos7_perf' : null, {});
   const [pClients] = useDoc(portal ? 'vos7_clients' : null, {});
   const [ym, setYm] = useState(ymNow());
@@ -435,7 +462,8 @@ function WsReport({ cl, portal }) {
         <${Kpi} l="Investimento" v=${money2(pa.spend)}/><${Kpi} l="Leads" v=${num(pa.leads)} s=${'CPL ' + (Number.isFinite(pa.cpl) ? money2(pa.cpl) : '—')}/>
         <${Kpi} l=${pm === 'venda' ? 'Reuniões' : 'Agendamentos'} v=${num(pa.appts)} s=${pct(pa.convStep) + ' dos leads'}/>
         <${Kpi} l="Faturamento via tráfego" v=${money(pa.trafego)} tone="good"/><${Kpi} l="ROAS" v=${Number.isFinite(pa.roas) ? num(pa.roas, 1) + 'x' : '—'} s="retorno sobre o investido" tone=${pa.roas >= 3 ? 'good' : null}/></div>` : html`<div class="small muted">Nenhuma semana registrada neste mês.</div>`}</div>`}
-    <div class="grid g4 mb16">
+    ${!crmOn && !perf.length && html`<div class="card"><${Empty} t="Nenhum relatório ainda" s=${portal ? 'Os números aparecem aqui assim que a equipe registrar as semanas.' : 'Registre as semanas deste cliente no Painel semanal para os números aparecerem aqui.'}/></div>`}
+    ${crmOn && html`<div class="grid g4 mb16">
       <${Kpi} l="Novos leads" v=${num(novos.length)}/><${Kpi} l="Vendas" v=${num(vendas.length)} tone="good"/>
       <${Kpi} l="Faturamento (CRM)" v=${money(fat)} s=${vendas.length ? 'ticket ' + money(fat / vendas.length) : ''}/><${Kpi} l="Conversão do mês" v=${pct(ratio(vendas.length, novos.length) * 100)} s="vendas ÷ novos leads"/>
     </div>
@@ -446,7 +474,7 @@ function WsReport({ cl, portal }) {
         ${novos.length ? html`<${FunnelBars} rows=${Object.entries(byCanal).sort((a, b) => b[1].length - a[1].length).slice(0, 8).map(([k, l]) => ({ l: k, v: l.length }))}/>` : html`<div class="small muted">Sem leads novos no mês.</div>`}
         <div class="hr"/><div class="xs b faint mb8">FUNIL ATUAL</div>
         <${FunnelBars} rows=${stages.filter(s => s.id !== 'perdido').map(s => ({ l: s.l, v: leads.filter(l => l._s === s.id).length, c: s.id === 'venda' ? 'var(--good)' : null }))}/></div>
-    </div>
+    </div>`}
   </div>`;
 }
 
