@@ -90,6 +90,18 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 - **Login da equipe**: modo "Equipe" (senha própria), que vê só a operação e o painel semanal.
 - Usa **as mesmas chaves do sistema antigo** (`vos6_clients`, `vos6_c<id>_posts`, `_briefing`, `_crm`, `_ck`, `_rot`, `_mapas`, `_todos`), então nada foi migrado nem copiado: os dois sistemas mostram os mesmos dados enquanto o antigo não for desligado. Os códigos de acesso dos clientes continuam os mesmos.
 
+### Interno (gestão operacional da agência)
+- **Pendências** (o principal): uma lista por pessoa (Júlia, Leonardo, Amanda…).
+  - Os posts entram sozinhos quando chegam numa etapa dessa pessoa: Criação → Júlia; Gravação, Edição e Postagem → Leonardo; Edição de Arte → Amanda.
+  - As etapas "(Cliente)" geram a pendência no portal do cliente.
+  - Tudo vem agrupado em Atrasado / Esta semana / Semana que vem / Futuro, com botão para avançar a etapa ou marcar como postado.
+  - Também mostra as pendências manuais, os posts com ajuste pedido pelo cliente, o aviso do dia 15 (criação de conteúdo) e a rotina do Leonardo (boletos seg/qua/sex, relatórios na segunda).
+- **Overview semanal** e **Cronograma** mensal com os posts de todos os clientes.
+- **Reuniões**: pauta, decisões, próximos passos e a **transcrição** colada, com busca.
+- **Acessos** (só no login da agência) e **Membros**.
+- **Instagram**: os insights mensais agora ficam no espaço de cada cliente (aba "Instagram", visível só para a agência).
+- Mesmas chaves do sistema antigo: `vos6_internal` (colabs, ac, re, insights), `vos6_manpend` e os lembretes `vos6_day15_*`, `vos6_boletos_*`, `vos6_relcamp_*`. Ao salvar, o sistema relê `vos6_internal` e troca só a parte alterada. Relatório, Campanhas, Processos e Tráfego antigos não aparecem mais, mas os dados continuam guardados.
+
 ### Metas e calculadoras
 - **Metas do mês** × realizado, com **marcador de ritmo** (onde você deveria estar hoje pelos dias úteis) e "faltam X por dia útil". Métricas: novo MRR, valor vendido, vendas, reuniões, leads, abordagens, caixa, receita, MRR, investimento e CAC máximo.
 - **Calculadora de metas & CAC** (funil reverso, no estilo Visions Tracking): parte da meta de novo MRR e calcula vendas, reuniões, leads e investimento. Mostra CAC projetado × CAC máximo (LTV ÷ 3), LTV:CAC, payback, custo por reunião e diagnóstico. O botão "Usar meus números reais" preenche com os últimos 90 dias, e "Salvar metas" grava direto nas metas do mês.
@@ -157,6 +169,7 @@ src/
   45-cobranca.js        Asaas (emissão, sincronização, conciliação) e lembretes do exterior
   50-metas.js           metas e calculadoras
   55-performance.js     painel semanal de clientes (tráfego, ROAS, CPL, CAC, meta)
+  37-interno.js         interno: pendências, overview, cronograma, reuniões, acessos, membros; Instagram do cliente
   60-app.js             Hoje, configurações, importação, login (agência/equipe/cliente), navegação
   65-portal.js          portal do cliente
 build.js                gera o index.html único (e dist/index.html):  node build.js

@@ -193,7 +193,7 @@ function ClientOpsForm({ c, list, save, cs, onClose, onCreated }) {
 }
 
 /* ---------- espaço do cliente ---------- */
-const WS_TABS = [{ v: 'briefing', l: '📝 Briefing' }, { v: 'posts', l: '📋 Posts' }, { v: 'relatorio', l: '📊 Relatório' }, { v: 'crm', l: '🤝 CRM' }, { v: 'ck', l: '✅ Checklist' }, { v: 'rot', l: '🎬 Roteiro' }, { v: 'mapas', l: '🧠 Mapas mentais' }];
+const WS_TABS = [{ v: 'briefing', l: '📝 Briefing' }, { v: 'posts', l: '📋 Posts' }, { v: 'relatorio', l: '📊 Relatório' }, { v: 'crm', l: '🤝 CRM' }, { v: 'ck', l: '✅ Checklist' }, { v: 'rot', l: '🎬 Roteiro' }, { v: 'mapas', l: '🧠 Mapas mentais' }, { v: 'instagram', l: '📈 Instagram', agency: true }];
 function ClientWorkspace({ id, nav, portal }) {
   const db = useDB();
   const [clients, saveClients, loading] = useDoc(V6('clients'), []);
@@ -207,7 +207,7 @@ function ClientWorkspace({ id, nav, portal }) {
   if (!cl) return html`<div class="card"><${Empty} t="Cliente não encontrado" s=""><${Btn} on=${() => nav.go('operacao')}>Voltar</${Btn}></${Empty}></div>`;
   const stg = PIPE.find(s => s.id === (cl.stage || 'kickoff')) || PIPE[0];
   const cts = vals(db.contracts).filter(k => k.clientId === 'v6c_' + cl.id && contractStatus(k) !== 'encerrado');
-  const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas }[tab];
+  const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas, instagram: WsInstagram }[portal && tab === 'instagram' ? 'posts' : tab];
   return html`<div>
     ${!portal && html`<div class="row wrap mb12" style=${{ gap: 10 }}>
       <${Btn} sz="sm" v="ghost" icon="left" on=${() => nav.go('operacao')}>Clientes</${Btn}>
@@ -220,7 +220,7 @@ function ClientWorkspace({ id, nav, portal }) {
       <${Btn} sz="sm" icon="users" on=${() => nav.preview(cl.id)} title="Ver o que o cliente vê no portal">Portal · ${cl.code || 'sem código'}</${Btn}>
       <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
     </div>`}
-    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${WS_TABS.map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
+    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${WS_TABS.filter(t => !(portal && t.agency)).map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
     <${P} cl=${cl} cs=${cs} portal=${portal} nav=${nav}/>
     ${edit && html`<${ClientOpsForm} c=${cl} list=${asArr(clients)} save=${saveClients} cs=${cs} onClose=${() => setEdit(false)}/>`}
   </div>`;
