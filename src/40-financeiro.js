@@ -302,10 +302,12 @@ function ContractsPage({ nav }) {
   const cnt = s => all.filter(x => x.st === s).length;
   const list = all.filter(x => x.st === tab && (!q || (x.c.clientName || '').toLowerCase().includes(q.toLowerCase()))).sort((a, b) => (b.c.startDate || '').localeCompare(a.c.startDate || ''));
   const mrr = sum(all.filter(x => x.st === 'ativo' || x.st === 'aviso'), x => brlValue(x.c));
+  const mrrAv = sum(all.filter(x => x.st === 'aviso'), x => brlValue(x.c));
   return html`<div>
-    <${PageH} t="Contratos" s=${'MRR atual ' + money(mrr) + ' · ' + cnt('ativo') + ' recorrentes ativos'}>
+    <${PageH} t="Contratos" s=${'MRR atual ' + money(mrr) + ' · ' + cnt('ativo') + ' ativos' + (cnt('aviso') ? ' · ' + money(mrrAv) + ' em aviso (' + cnt('aviso') + ')' : '')}>
       <${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}>
     </${PageH}>
+    ${cnt('aviso') > 0 && html`<${LeavingBanner} db=${db} nav=${nav} onShow=${() => setTab('aviso')}/>`}
     <div class="row wrap mb12"><${Seg} v=${tab} on=${setTab} opts=${[{ v: 'ativo', l: 'Ativos (' + cnt('ativo') + ')' }, { v: 'aviso', l: 'Em aviso (' + cnt('aviso') + ')' }, { v: 'projeto', l: 'Projetos (' + cnt('projeto') + ')' }, { v: 'encerrado', l: 'Encerrados (' + cnt('encerrado') + ')' }]}/>
       <div style=${{ flex: '1 1 200px', maxWidth: 300, marginLeft: 'auto' }}><${Input} v=${q} on=${setQ} ph="Buscar cliente…"/></div></div>
     <div class="card flush tbl-wrap"><table class="tbl"><thead><tr><th>Cliente</th><th>Produto</th><th>Condição</th><th>Pagamento</th><th>Início</th><th class="r">Valor</th></tr></thead><tbody>
@@ -554,4 +556,19 @@ function ClassifyProducts({ list, onClose }) {
       <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${c.clientName}</div><div class="xs faint ellipsis">${condText(c)}${c.notes ? ' · ' + c.notes : ''}</div></div>
       <div style=${{ width: 300 }}><${Select} sm=${true} v=${pick[c.id]} on=${v => setPick(p => ({ ...p, [c.id]: v }))} ph="— escolher —" opts=${opts}/></div></div>`)}</div>
   </${Modal}>`;
+}
+
+/* ---------- aviso: quem está saindo ---------- */
+function LeavingBanner({ db, nav, onShow, compact }) {
+  const list = leavingContracts(db);
+  if (!list.length) return null;
+  const tot = sum(list, brlValue);
+  return html`<div class="callout warn mb16">
+    <div class="row between wrap" style=${{ gap: 10 }}>
+      <b class="t" style=${{ margin: 0 }}>⚠ ${list.length} cliente${list.length > 1 ? 's' : ''} em aviso — ${money(tot)}/mês saindo do MRR</b>
+      ${onShow && html`<${Btn} sz="xs" on=${onShow}>Ver em aviso</${Btn}>`}</div>
+    <div class="mt8">${list.slice(0, compact ? 4 : 20).map(c => { const d = diffDays(today(), c.endDate); return html`<div key=${c.id} class="row between small" style=${{ padding: '3px 0', cursor: 'pointer' }} onClick=${() => nav.contract(c.id)}>
+      <span><b>${c.clientName}</b> <span class="muted">· ${prodName(db.S, c.productId)}</span></span>
+      <span class="num"><b>${money(brlValue(c))}</b>/mês · sai em <b>${fdate(c.endDate)}</b> <span class="muted">(${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : d + ' dias'})</span></span></div>`; })}</div>
+  </div>`;
 }

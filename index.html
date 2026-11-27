@@ -706,7 +706,7 @@ function contractStatus(c, ref) {
     if (c.canceled) return 'encerrado';
     return 'projeto';
   }
-  if (c.kind === 'espelho') return c.endDate && c.endDate < t ? 'encerrado' : 'ativo';
+  if (c.kind === 'espelho') return c.endDate ? (c.endDate < t ? 'encerrado' : 'aviso') : 'ativo';
   if (c.endDate && c.endDate < t) return 'encerrado';
   if (c.endDate) return 'aviso';
   return 'ativo';
@@ -714,6 +714,7 @@ function contractStatus(c, ref) {
 const brlValue = c => (Number(c.value) || 0) * fxRate(c);
 const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
 const neverBilled = c => !!(c.endDate && c.kind === 'recorrente' && (c.firstDue || c.startDate) && c.endDate < (c.firstDue || c.startDate));
+const leavingContracts = db => vals(db.contracts).filter(c => contractStatus(c) === 'aviso' && (c.kind === 'recorrente' || c.kind === 'espelho')).sort((a, b) => (a.endDate || '').localeCompare(b.endDate || ''));
 const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && !neverBilled(c) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].
@@ -2181,10 +2182,12 @@ function ContractsPage({ nav }) {
   const cnt = s => all.filter(x => x.st === s).length;
   const list = all.filter(x => x.st === tab && (!q || (x.c.clientName || '').toLowerCase().includes(q.toLowerCase()))).sort((a, b) => (b.c.startDate || '').localeCompare(a.c.startDate || ''));
   const mrr = sum(all.filter(x => x.st === 'ativo' || x.st === 'aviso'), x => brlValue(x.c));
+  const mrrAv = sum(all.filter(x => x.st === 'aviso'), x => brlValue(x.c));
   return html`<div>
-    <${PageH} t="Contratos" s=${'MRR atual ' + money(mrr) + ' · ' + cnt('ativo') + ' recorrentes ativos'}>
+    <${PageH} t="Contratos" s=${'MRR atual ' + money(mrr) + ' · ' + cnt('ativo') + ' ativos' + (cnt('aviso') ? ' · ' + money(mrrAv) + ' em aviso (' + cnt('aviso') + ')' : '')}>
       <${Btn} v="pri" icon="plus" on=${() => nav.newContract()}>Nova venda</${Btn}>
     </${PageH}>
+    ${cnt('aviso') > 0 && html`<${LeavingBanner} db=${db} nav=${nav} onShow=${() => setTab('aviso')}/>`}
     <div class="row wrap mb12"><${Seg} v=${tab} on=${setTab} opts=${[{ v: 'ativo', l: 'Ativos (' + cnt('ativo') + ')' }, { v: 'aviso', l: 'Em aviso (' + cnt('aviso') + ')' }, { v: 'projeto', l: 'Projetos (' + cnt('projeto') + ')' }, { v: 'encerrado', l: 'Encerrados (' + cnt('encerrado') + ')' }]}/>
       <div style=${{ flex: '1 1 200px', maxWidth: 300, marginLeft: 'auto' }}><${Input} v=${q} on=${setQ} ph="Buscar cliente…"/></div></div>
     <div class="card flush tbl-wrap"><table class="tbl"><thead><tr><th>Cliente</th><th>Produto</th><th>Condição</th><th>Pagamento</th><th>Início</th><th class="r">Valor</th></tr></thead><tbody>
@@ -2433,6 +2436,21 @@ function ClassifyProducts({ list, onClose }) {
       <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t ellipsis">${c.clientName}</div><div class="xs faint ellipsis">${condText(c)}${c.notes ? ' · ' + c.notes : ''}</div></div>
       <div style=${{ width: 300 }}><${Select} sm=${true} v=${pick[c.id]} on=${v => setPick(p => ({ ...p, [c.id]: v }))} ph="— escolher —" opts=${opts}/></div></div>`)}</div>
   </${Modal}>`;
+}
+
+/* ---------- aviso: quem está saindo ---------- */
+function LeavingBanner({ db, nav, onShow, compact }) {
+  const list = leavingContracts(db);
+  if (!list.length) return null;
+  const tot = sum(list, brlValue);
+  return html`<div class="callout warn mb16">
+    <div class="row between wrap" style=${{ gap: 10 }}>
+      <b class="t" style=${{ margin: 0 }}>⚠ ${list.length} cliente${list.length > 1 ? 's' : ''} em aviso — ${money(tot)}/mês saindo do MRR</b>
+      ${onShow && html`<${Btn} sz="xs" on=${onShow}>Ver em aviso</${Btn}>`}</div>
+    <div class="mt8">${list.slice(0, compact ? 4 : 20).map(c => { const d = diffDays(today(), c.endDate); return html`<div key=${c.id} class="row between small" style=${{ padding: '3px 0', cursor: 'pointer' }} onClick=${() => nav.contract(c.id)}>
+      <span><b>${c.clientName}</b> <span class="muted">· ${prodName(db.S, c.productId)}</span></span>
+      <span class="num"><b>${money(brlValue(c))}</b>/mês · sai em <b>${fdate(c.endDate)}</b> <span class="muted">(${d === 0 ? 'hoje' : d === 1 ? 'amanhã' : d + ' dias'})</span></span></div>`; })}</div>
+  </div>`;
 }
 
 /* ---- 45-cobranca.js ---- */
@@ -3429,6 +3447,7 @@ function HomePage({ nav }) {
               ${gl > 0 && html`<div class="mt8"><${Progress} v=${v} max=${gl} tone=${v >= gl ? 'good' : ''}/></div>`}</div>`; })}
         </div>
         ${meetings.length > 0 && html`<div class="card flush"><div class="lgroup"><span>Reuniões</span></div>${meetings.map(d => html`<div class="lrow" key=${d.id} style=${{ cursor: 'pointer' }} onClick=${() => nav.deal(d.id)}><${Icon} n="cal"/><div style=${{ flex: 1 }}><b>${d.name}</b><div class="xs faint">${d.company}</div></div><${Tag} t=${d.meetingAt.slice(0, 10) === today() ? 'warn' : 'info'}>${relDay(d.meetingAt.slice(0, 10))} ${d.meetingAt.slice(11, 16)}</${Tag}></div>`)}</div>`}
+        <${LeavingBanner} db=${db} nav=${nav} compact=${true} onShow=${() => nav.go('contratos')}/>
         <div class="card flush"><div class=${'lgroup' + (late.length ? ' bad' : '')}><span>${late.length ? 'Cobranças atrasadas' : 'A receber (7 dias)'}</span><span><a href="#recebiveis" onClick=${e => { e.preventDefault(); nav.go('recebiveis'); }}>ver →</a></span></div>
           ${late.concat(soon).slice(0, 6).map(i => html`<${InvRow} key=${i.id} i=${i}/>`)}
           ${!late.length && !soon.length && html`<${Empty} t="Nada vencendo" s="Nenhuma cobrança nos próximos 7 dias."/>`}
@@ -3716,7 +3735,8 @@ function Shell({ onLogout }) {
   const invNow = useMemo(() => allInvoices(db, addMonths(ymNow(), 1)), [db.contracts, db.payments, db.asaas, db.settings]);
   const lateN = invNow.filter(i => i.status === 'atrasado' && !isInadimplente(i)).length;
   const issN = useMemo(() => reconcile(db, invNow).filter(x => x.type !== 'atrasada' && ISSUE_TYPES[x.type].t !== 'info').length, [invNow]);
-  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null };
+  const avisoN = leavingContracts(db).length;
+  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null, contratos: avisoN ? [avisoN, false] : null };
   const cur = PAGES.find(p => p.id === page) || PAGES[0];
   const P = { hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
   let lastG = null;

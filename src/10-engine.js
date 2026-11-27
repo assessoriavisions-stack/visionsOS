@@ -11,7 +11,7 @@ function contractStatus(c, ref) {
     if (c.canceled) return 'encerrado';
     return 'projeto';
   }
-  if (c.kind === 'espelho') return c.endDate && c.endDate < t ? 'encerrado' : 'ativo';
+  if (c.kind === 'espelho') return c.endDate ? (c.endDate < t ? 'encerrado' : 'aviso') : 'ativo';
   if (c.endDate && c.endDate < t) return 'encerrado';
   if (c.endDate) return 'aviso';
   return 'ativo';
@@ -19,6 +19,7 @@ function contractStatus(c, ref) {
 const brlValue = c => (Number(c.value) || 0) * fxRate(c);
 const brlSetup = c => (Number(c.setupValue) || 0) * fxRate(c);
 const neverBilled = c => !!(c.endDate && c.kind === 'recorrente' && (c.firstDue || c.startDate) && c.endDate < (c.firstDue || c.startDate));
+const leavingContracts = db => vals(db.contracts).filter(c => contractStatus(c) === 'aviso' && (c.kind === 'recorrente' || c.kind === 'espelho')).sort((a, b) => (a.endDate || '').localeCompare(b.endDate || ''));
 const contractActiveIn = (c, ym) => (c.kind === 'recorrente' || (c.kind === 'espelho' && n0(c.value) > 0)) && !neverBilled(c) && ymOf(c.startDate) <= ym && (!c.endDate || ymOf(c.endDate) >= ym);
 
 // Gera as cobranças (virtuais) de um contrato. IDs determinísticos => pagamento fica em payments[id].

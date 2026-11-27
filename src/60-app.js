@@ -54,6 +54,7 @@ function HomePage({ nav }) {
               ${gl > 0 && html`<div class="mt8"><${Progress} v=${v} max=${gl} tone=${v >= gl ? 'good' : ''}/></div>`}</div>`; })}
         </div>
         ${meetings.length > 0 && html`<div class="card flush"><div class="lgroup"><span>Reuniões</span></div>${meetings.map(d => html`<div class="lrow" key=${d.id} style=${{ cursor: 'pointer' }} onClick=${() => nav.deal(d.id)}><${Icon} n="cal"/><div style=${{ flex: 1 }}><b>${d.name}</b><div class="xs faint">${d.company}</div></div><${Tag} t=${d.meetingAt.slice(0, 10) === today() ? 'warn' : 'info'}>${relDay(d.meetingAt.slice(0, 10))} ${d.meetingAt.slice(11, 16)}</${Tag}></div>`)}</div>`}
+        <${LeavingBanner} db=${db} nav=${nav} compact=${true} onShow=${() => nav.go('contratos')}/>
         <div class="card flush"><div class=${'lgroup' + (late.length ? ' bad' : '')}><span>${late.length ? 'Cobranças atrasadas' : 'A receber (7 dias)'}</span><span><a href="#recebiveis" onClick=${e => { e.preventDefault(); nav.go('recebiveis'); }}>ver →</a></span></div>
           ${late.concat(soon).slice(0, 6).map(i => html`<${InvRow} key=${i.id} i=${i}/>`)}
           ${!late.length && !soon.length && html`<${Empty} t="Nada vencendo" s="Nenhuma cobrança nos próximos 7 dias."/>`}
@@ -341,7 +342,8 @@ function Shell({ onLogout }) {
   const invNow = useMemo(() => allInvoices(db, addMonths(ymNow(), 1)), [db.contracts, db.payments, db.asaas, db.settings]);
   const lateN = invNow.filter(i => i.status === 'atrasado' && !isInadimplente(i)).length;
   const issN = useMemo(() => reconcile(db, invNow).filter(x => x.type !== 'atrasada' && ISSUE_TYPES[x.type].t !== 'info').length, [invNow]);
-  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null };
+  const avisoN = leavingContracts(db).length;
+  const badge = { followups: fuN ? [fuN, fu.atrasado.length > 0] : null, recebiveis: lateN ? [lateN, true] : null, cobrancas: issN ? [issN, true] : null, contratos: avisoN ? [avisoN, false] : null };
   const cur = PAGES.find(p => p.id === page) || PAGES[0];
   const P = { hoje: HomePage, pipeline: PipelinePage, followups: FollowupsPage, prospeccao: ProspectPage, cadencias: CadencesPage, analise: AnalyticsPage, financeiro: FinancePage, recebiveis: ReceivablesPage, cobrancas: CobrancasPage, performance: PerformancePage, contratos: ContractsPage, despesas: CostsPage, clientes: ClientsPage, metas: GoalsPage, calc_meta: CalcGoalPage, calc_prosp: CalcProspPage, config: SettingsPage }[page];
   let lastG = null;
