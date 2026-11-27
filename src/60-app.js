@@ -291,6 +291,7 @@ function Login({ onOk, onClient }) {
       ${err && html`<div class="callout bad">${err}</div>`}
       <${Btn} v="pri" on=${go} disabled=${ld}>${ld ? 'Entrando…' : 'Entrar'}</${Btn}>
       ${MODE === 'local' && html`<div class="xs faint">Modo de teste local. Senhas padrão: agência visions2025 · equipe visionsteam.</div>`}
+      <div style=${{ display: 'flex', justifyContent: 'center' }}><${InstallBtn}/></div>
     </div></div></div>`;
 }
 
@@ -375,7 +376,7 @@ function Shell({ onLogout }) {
       <div class="brand"><img src=${window.VOS_LOGO} alt="Visions Marketing"/></div>
       <div class="tagline">Visions OS · Performance</div>
       <${NavItems}/>
-      <div class="foot"><${SyncBadge}/><div class="row between"><span>👤 ${CURRENT_USER.name}</span><button class="btn ghost xs" onClick=${onLogout}><${Icon} n="logout" s=${14}/>Sair</button></div></div>
+      <div class="foot"><${SyncBadge}/><${InstallBtn}/><div class="row between"><span>👤 ${CURRENT_USER.name}</span><button class="btn ghost xs" onClick=${onLogout}><${Icon} n="logout" s=${14}/>Sair</button></div></div>
     </aside>
     <main class="main">
       <div class="top">
@@ -407,6 +408,25 @@ function Shell({ onLogout }) {
     <${Toasts}/><${TipLayer}/>
   </div>`;
 }
+/* ---------- app instalável (PWA) ---------- */
+const pwa = { evt: null, subs: new Set() };
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); pwa.evt = e; pwa.subs.forEach(f => f()); });
+window.addEventListener('appinstalled', () => { pwa.evt = null; pwa.subs.forEach(f => f()); toast('Visions OS instalado! Ele aparece junto dos seus apps.'); });
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function InstallBtn({ cls, sz }) {
+  const [, setV] = useState(0); const [help, setHelp] = useState(false);
+  useEffect(() => { const f = () => setV(v => v + 1); pwa.subs.add(f); return () => pwa.subs.delete(f); }, []);
+  if (isStandalone() || !/^https?:$/.test(location.protocol)) return null;
+  if (!pwa.evt && !isIOS()) return null;
+  const go = async () => { if (pwa.evt) { pwa.evt.prompt(); await pwa.evt.userChoice.catch(() => {}); pwa.evt = null; pwa.subs.forEach(f => f()); } else setHelp(true); };
+  return html`<${Fragment}><button class=${'btn ' + (sz || 'xs') + ' ' + (cls || 'ghost')} onClick=${go}><${Icon} n="down" s=${14}/>Instalar app</button>
+    ${help && html`<${Modal} title="Instalar no iPhone / iPad" onClose=${() => setHelp(false)} footer=${html`<span style=${{ flex: 1 }}/><${Btn} v="pri" on=${() => setHelp(false)}>Entendi</${Btn}>`}>
+      <ol class="small" style=${{ lineHeight: 1.9, paddingLeft: 18, margin: 0 }}><li>Abra este endereço no <b>Safari</b>.</li><li>Toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>"Adicionar à Tela de Início"</b> e toque em <b>Adicionar</b>.</li></ol>
+      <div class="xs faint mt12">O ícone do Visions OS aparece na tela do celular e abre em tela cheia, como um app.</div></${Modal}>`}</${Fragment}>`;
+}
+
 function App() {
   const [sess, setSess] = useState(() => LS.get('vos7_session', null));
   const logout = () => {

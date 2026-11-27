@@ -13,6 +13,7 @@ function ClientPortal({ clientId, onLogout, preview }) {
       <img src=${window.VOS_LOGO} alt="Visions" style=${{ height: 30 }}/>
       <div style=${{ minWidth: 0 }}><div class="ttl ellipsis">${cl.name}</div><div class="xs faint">Portal do cliente${preview ? ' · pré-visualização da equipe' : ''}</div></div>
       <span class="sp"/>
+      ${!preview && html`<${InstallBtn} sz="sm" cls=""/>`}
       <${Btn} sz="sm" v=${preview ? 'pri' : ''} icon=${preview ? 'x' : 'logout'} on=${onLogout}>${preview ? 'Fechar visualização' : 'Sair'}</${Btn}>
     </div>
     <div class="content"><${ClientWorkspace} id=${clientId} portal=${true} nav=${{ go: () => {}, client: () => {}, preview: () => {} }}/></div>

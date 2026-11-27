@@ -130,6 +130,13 @@ Tudo o que precisa de ação no dia: follow-ups atrasados e de hoje (com script 
 
 ---
 
+## App no celular e no computador
+O Visions OS pode ser instalado como app (PWA), com ícone próprio, tela cheia e abertura mesmo sem internet. Os dados sincronizam quando a conexão volta.
+- **Android / Chrome / Edge**: botão **"Instalar app"** na tela de login, no rodapé do menu ou no portal do cliente (ou no menu do navegador → Instalar).
+- **iPhone / iPad**: no Safari, Compartilhar → **Adicionar à Tela de Início** (o botão "Instalar app" mostra esse passo a passo).
+- O portal do cliente também pode ser instalado pelo cliente.
+- Arquivos: `src/manifest.webmanifest`, `src/sw.js` e ícones em `assets/pwa/`, copiados para `dist/` pelo `build.js`.
+
 ## 3. Publicar no Netlify (necessário para o Asaas)
 
 1. No Netlify: **Add new site → Import an existing project → GitHub** e escolha este repositório. O `netlify.toml` já configura tudo: o build gera `dist/index.html` e as funções ficam em `netlify/functions`.

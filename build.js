@@ -11,4 +11,7 @@ const out = R('src/index.template.html')
 fs.writeFileSync(path.join(__dirname, 'index.html'), out);
 fs.mkdirSync(path.join(__dirname, 'dist'), { recursive: true });
 fs.writeFileSync(path.join(__dirname, 'dist', 'index.html'), out); // pasta publicada no Netlify
+// app instalável (PWA): manifesto, service worker e ícones
+['manifest.webmanifest', 'sw.js'].forEach(f => fs.copyFileSync(path.join(__dirname, 'src', f), path.join(__dirname, 'dist', f)));
+fs.readdirSync(path.join(__dirname, 'assets', 'pwa')).forEach(f => fs.copyFileSync(path.join(__dirname, 'assets', 'pwa', f), path.join(__dirname, 'dist', f)));
 console.log('index.html gerado:', (out.length / 1024).toFixed(0) + ' KB');
