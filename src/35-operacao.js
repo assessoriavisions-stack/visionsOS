@@ -74,7 +74,7 @@ function postStages(type, capt) {
 const CLIENT_STAGES = ['Upload Drive (Cliente)', 'Aprovação (Cliente)', 'Aprovação de Roteiro (Cliente)'];
 const STAGE_DAYS = { 'Edição': 3, 'Edição de Arte': 3, 'Aprovação (Cliente)': 2, 'Aprovação Final (Cliente)': 2, 'Aprovação de Roteiro (Cliente)': 2 };
 const STAGE_RESP = { 'Criação': 'consultora', 'Gravação': 'leonardo', 'Edição': 'leonardo', 'Edição de Arte': 'designer', 'Postagem': 'leonardo' };
-const POST_TYPES = [{ v: 'video', l: '🎬 Vídeo' }, { v: 'arte', l: '🎨 Arte' }, { v: 'foto', l: '📸 Foto' }];
+const POST_TYPES = [{ v: 'video', l: 'Vídeo', icon: 'film' }, { v: 'arte', l: 'Arte', icon: 'image' }, { v: 'foto', l: 'Foto', icon: 'camera' }];
 const POST_PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Site/Blog', 'LinkedIn'];
 const addBiz = (s, n) => { let d = s; let k = 0; while (k < n) { d = addDays(d, 1); if (!isWeekend(d)) k++; } return d; };
 const subBiz = (s, n) => { let d = s; let k = 0; while (k < n) { d = addDays(d, -1); if (!isWeekend(d)) k++; } return d; };
@@ -157,7 +157,7 @@ function OperacaoPage({ nav }) {
             return html`<div key=${c.id} class="kcard" draggable="true" onDragStart=${() => setDrag(c.id)} onClick=${() => nav.client(c.id)}>
               <div class="row between"><div class="nm ellipsis">${c.name}</div>${m > 0 && html`<span class="xs b num" style=${{ color: 'var(--good)' }}>${money(m)}</span>`}</div>
               <div class="co ellipsis">${c.segment || '—'}</div>
-              <div class="meta"><${Tag}>👤 ${colabName(cs, c.responsible)}</${Tag}>${c.code && html`<${Tag} t="pri">${c.code}</${Tag}>`}${days != null && html`<span class="xs faint" style=${{ marginLeft: 'auto' }}>${days}d</span>`}</div>
+              <div class="meta"><${Tag}>${colabName(cs, c.responsible)}</${Tag}>${c.code && html`<${Tag} t="pri">${c.code}</${Tag}>`}${days != null && html`<span class="xs faint" style=${{ marginLeft: 'auto' }}>${days}d</span>`}</div>
             </div>`; })}
           ${!col.length && html`<div class="xs faint" style=${{ textAlign: 'center', padding: 12 }}>—</div>`}
         </div>`; })}</div>`}
@@ -193,7 +193,7 @@ function ClientOpsForm({ c, list, save, cs, onClose, onCreated }) {
 }
 
 /* ---------- espaço do cliente ---------- */
-const WS_TABS = [{ v: 'briefing', l: '📝 Briefing' }, { v: 'posts', l: '📋 Posts' }, { v: 'relatorio', l: '📊 Relatório' }, { v: 'crm', l: '🤝 CRM' }, { v: 'ck', l: '✅ Checklist' }, { v: 'rot', l: '🎬 Roteiro' }, { v: 'mapas', l: '🧠 Mapas mentais' }, { v: 'instagram', l: '📈 Instagram', agency: true }];
+const WS_TABS = [{ v: 'briefing', l: 'Briefing', icon: 'file' }, { v: 'posts', l: 'Posts', icon: 'image' }, { v: 'relatorio', l: 'Relatório', icon: 'chart' }, { v: 'crm', l: 'CRM', icon: 'users' }, { v: 'ck', l: 'Checklist', icon: 'checksq' }, { v: 'rot', l: 'Roteiro', icon: 'film' }, { v: 'mapas', l: 'Mapas mentais', icon: 'map' }, { v: 'instagram', l: 'Instagram', icon: 'camera', agency: true }];
 function ClientWorkspace({ id, nav, portal }) {
   const db = useDB();
   const [clients, saveClients, loading] = useDoc(V6('clients'), []);
@@ -209,18 +209,20 @@ function ClientWorkspace({ id, nav, portal }) {
   const cts = vals(db.contracts).filter(k => k.clientId === 'v6c_' + cl.id && contractStatus(k) !== 'encerrado');
   const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas, instagram: WsInstagram }[portal && tab === 'instagram' ? 'posts' : tab];
   return html`<div>
-    ${!portal && html`<div class="row wrap mb12" style=${{ gap: 10 }}>
+    ${!portal && html`<div class="row wrap mb16" style=${{ gap: 14, alignItems: 'flex-start' }}>
       <${Btn} sz="sm" v="ghost" icon="left" on=${() => nav.go('operacao')}>Clientes</${Btn}>
-      <h1 style=${{ fontSize: 22 }}>${cl.name}</h1>
-      <${Tag} style=${{ background: 'var(--surface-3)' }}><span class="dot" style=${{ background: stg.c }}/> ${stg.l}</${Tag}>
-      ${cl.segment && html`<span class="muted small">${cl.segment}</span>`}
-      <span style=${{ flex: 1 }}/>
-      ${cts.length > 0 && html`<span class="small muted">${cts.map(k => prodName(db.S, k.productId).split(' (')[0]).join(' · ')} · <b>${money(sum(cts.filter(k => contractActiveIn(k, ymNow())), brlValue))}/mês</b></span>`}
-      ${cl.onedrive && html`<${Btn} sz="sm" icon="external" href=${cl.onedrive}>Drive</${Btn}>`}
-      <${Btn} sz="sm" icon="users" on=${() => nav.preview(cl.id)} title="Ver o que o cliente vê no portal">Portal · ${cl.code || 'sem código'}</${Btn}>
-      <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
+      <${Avatar} name=${cl.name} size=${44}/>
+      <div style=${{ flex: '1 1 300px', minWidth: 0 }}>
+        <div class="row wrap" style=${{ gap: 10 }}><h1 style=${{ fontSize: 24, letterSpacing: '-.03em' }}>${cl.name}</h1><${Pill} c=${stg.c}>${stg.l}</${Pill}></div>
+        <div class="meta">${cl.segment && html`<span>${cl.segment}</span><i class="sep"/>`}${cts.length > 0 ? html`<span>${[...new Set(cts.map(k => prodName(db.S, k.productId).split(' (')[0]))].join(' · ')}</span><i class="sep"/><b>${money(sum(cts.filter(k => contractActiveIn(k, ymNow())), brlValue))}/mês</b>` : html`<span>sem contrato ativo</span>`}</div>
+      </div>
+      <div class="row wrap" style=${{ gap: 8 }}>
+        ${cl.onedrive && html`<${Btn} sz="sm" icon="folder" href=${cl.onedrive}>Drive</${Btn}>`}
+        <${Btn} sz="sm" icon="eye" on=${() => nav.preview(cl.id)} title="Ver o que o cliente vê no portal">Portal · ${cl.code || 'sem código'}</${Btn}>
+        <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
+      </div>
     </div>`}
-    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${WS_TABS.filter(t => !(portal && t.agency)).map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
+    <${Tabs} v=${tab} on=${setTab} opts=${WS_TABS.filter(t => !(portal && t.agency))}/>
     <${P} cl=${cl} cs=${cs} portal=${portal} nav=${nav}/>
     ${edit && html`<${ClientOpsForm} c=${cl} list=${asArr(clients)} save=${saveClients} cs=${cs} onClose=${() => setEdit(false)}/>`}
   </div>`;
@@ -259,27 +261,27 @@ function WsPosts({ cl, cs, portal }) {
   const del = async id => { if (!confirm('Excluir este post de vez?')) return; await docSave(V6C(cl.id, 'posts'), posts.filter(x => x.id !== id)); };
   return html`<div>
     <div class="row wrap mb12">
-      <span class="small muted">${act.length} ativos${late ? html` · <b style=${{ color: 'var(--bad)' }}>⚠ ${late} ${portal ? 'esperando você há mais tempo que o combinado' : 'atrasados'}</b>` : ''}${mine.length ? html` · <b style=${{ color: 'var(--warn)' }}>${mine.length} aguardando ${portal ? 'você' : 'o cliente'}</b>` : ''}</span>
+      <span class="small muted">${act.length} ativos${late ? html` · <b style=${{ color: 'var(--bad)' }}>${late} ${portal ? 'esperando você há mais tempo que o combinado' : 'atrasados'}</b>` : ''}${mine.length ? html` · <b style=${{ color: 'var(--warn)' }}>${mine.length} aguardando ${portal ? 'você' : 'o cliente'}</b>` : ''}</span>
       <span style=${{ flex: 1 }}/>
       ${!portal && html`<${Btn} v="pri" icon="plus" on=${() => setEdit({})}>Novo post</${Btn}>`}
     </div>
     ${portal && mine.length > 0 && html`<div class="callout warn mb12"><b class="t">${mine.length} post(s) esperando você</b>Aprove os roteiros e vídeos ou envie o material. Se algo precisar mudar, clique em "Pedir ajuste" e explique.</div>`}
-    ${!portal && html`<div class="row wrap mb12"><${Seg} v=${view} on=${setView} opts=${[{ v: 'ativos', l: 'Todos ativos' }].concat(POST_TYPES).concat([{ v: 'arquivados', l: '📦 Arquivados' }])}/><${Seg} v=${plat} on=${setPlat} opts=${[{ v: '', l: 'Todas' }].concat(POST_PLATFORMS.map(p => ({ v: p, l: p })))}/></div>`}
+    ${!portal && html`<div class="row wrap mb12"><${Seg} v=${view} on=${setView} opts=${[{ v: 'ativos', l: 'Todos ativos' }].concat(POST_TYPES).concat([{ v: 'arquivados', l: 'Arquivados', icon: 'archive' }])}/><${Seg} v=${plat} on=${setPlat} opts=${[{ v: '', l: 'Todas' }].concat(POST_PLATFORMS.map(p => ({ v: p, l: p })))}/></div>`}
     <div class="card flush">
       ${list.map(p => { const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage); const lateP = lateOf(p); const resp = STAGE_RESP[p.stage];
-        return html`<div class="lrow" key=${p.id} style=${{ alignItems: 'flex-start', flexWrap: 'wrap', borderLeft: '3px solid ' + (lateP ? 'var(--bad)' : stageColor(p.stage)) }}>
-          <div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${p.postDate ? pad(parseD(p.postDate).getDate()) : '—'}</div><div class="xs faint">${p.postDate ? MSHORT[parseD(p.postDate).getMonth()] : ''}</div></div>
+        return html`<div class="lrow" key=${p.id} style=${{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <${DateBox} d=${p.postDate} late=${lateP}/>
           <div style=${{ flex: '1 1 280px', minWidth: 0, cursor: portal ? null : 'pointer' }} onClick=${() => !portal && setEdit(p)}>
             <div class="main-t">${p.theme || '(sem tema)'}</div>
             <div class="row wrap mt8" style=${{ gap: 6, marginTop: 4 }}>
-              <${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${(POST_TYPES.find(t => t.v === p.postType) || {}).l || p.postType}</${Tag}>
-              <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${portal && !isClientStage(p.stage) && p.stage !== 'Postagem' ? 'Em produção · ' + p.stage : p.stage}</${Tag}>
-              ${lateP && html`<${Tag} t="bad">⚠ atrasado</${Tag}>`}${p.rejected && html`<${Tag} t="bad" style=${{ whiteSpace: 'normal' }}>ajuste pedido${p.rejectionNote ? ': ' + p.rejectionNote : ''}</${Tag}>`}
+              <${Pill} c=${stageColor(p.stage)}>${portal && !isClientStage(p.stage) && p.stage !== 'Postagem' ? 'Em produção · ' + p.stage : p.stage}</${Pill}>
+              <span class="xs faint">${(POST_TYPES.find(t => t.v === p.postType) || {}).l || p.postType} · ${p.platform || 'Instagram'}</span>
+              ${lateP && html`<${Pill} c="var(--bad)">Atrasado</${Pill}>`}${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido${p.rejectionNote ? ': ' + p.rejectionNote : ''}</${Pill}>`}
               ${!portal && resp && html`<span class="xs faint">· ${colabName(cs, resp)}</span>`}
               ${!portal && postDeadline(p) && html`<span class="xs faint">· prazo ${fdate(postDeadline(p))}</span>`}
             </div>
             ${i >= 0 && html`<div class="row mt8" style=${{ gap: 3 }}>${st.map((s, k) => html`<span key=${k} title=${s} style=${{ height: 4, flex: 1, maxWidth: 40, borderRadius: 4, background: k <= i ? stageColor(p.stage) : 'var(--surface-3)' }}/>`)}</div>`}
-            ${(p.driveLink || p.artLink) && html`<div class="xs mt8">${p.driveLink && html`<a href=${p.driveLink} target="_blank" rel="noopener">📁 Drive</a>`} ${p.artLink && html`<a href=${p.artLink} target="_blank" rel="noopener">🎨 Arte</a>`}</div>`}
+            ${(p.driveLink || p.artLink) && html`<div class="xs mt8">${p.driveLink && html`<a href=${p.driveLink} target="_blank" rel="noopener">Drive ↗</a>`} ${p.artLink && html`<a href=${p.artLink} target="_blank" rel="noopener">Arte ↗</a>`}</div>`}
           </div>
           <div class="row wrap" style=${{ justifyContent: 'flex-end' }}>
             ${portal ? (isClientStage(p.stage) && html`
@@ -288,7 +290,7 @@ function WsPosts({ cl, cs, portal }) {
             : html`
               <${Btn} sz="xs" icon="left" on=${() => movePost(cl.id, posts, todos, p.id, -1)} disabled=${i <= 0}>Voltar</${Btn}>
               ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="xs" v="good" on=${() => movePost(cl.id, posts, todos, p.id, 1)}>→ ${st[i + 1].replace(' (Cliente)', '')}</${Btn}>`}
-              ${!p.archived && html`<${Btn} sz="xs" v="ghost" on=${() => arch(p.id)} title="Arquivar">📦</${Btn}>`}
+              ${!p.archived && html`<${Btn} sz="xs" v="ghost" on=${() => arch(p.id)} title="Arquivar" icon="archive"/>`}
               <${Btn} sz="xs" v="ghost" cls="danger" icon="trash" on=${() => del(p.id)}/>`}
           </div>
         </div>`; })}
@@ -468,7 +470,7 @@ function WsChecklist({ cl, portal }) {
           <div style=${{ flex: 1, minWidth: 0 }}><div class=${i.done ? 'faint' : ''} style=${{ textDecoration: i.done ? 'line-through' : null }}>${i.text}</div>
             <div class="xs faint">${(CK_CATS.find(c => c.v === i.category) || {}).l || i.category || ''}${i.deadline ? ' · prazo ' + fdate(i.deadline) : ''}${!portal && i.visivel === false ? ' · oculto do cliente' : ''}</div></div>
           ${!portal && html`<input class="inp sm" type="date" value=${i.deadline || ''} style=${{ width: 140 }} onChange=${e => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, deadline: e.target.value } : x)) }))}/>
-            <button class="btn xs ghost" title="Mostrar/ocultar no portal" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, visivel: x.visivel === false } : x)) }))}>${i.visivel === false ? '🙈' : '👁'}</button>
+            <button class="btn xs ghost" title="Mostrar/ocultar no portal" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, visivel: x.visivel === false } : x)) }))}><${Icon} n=${i.visivel === false ? 'eyeoff' : 'eye'} s=${15}/></button>
             <button class="btn xs ghost danger" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.filter(x => x.id !== i.id) }))}>×</button>`}
         </div>`)}
         ${!portal && html`<div class="row" style=${{ padding: 10 }}><${Input} sm=${true} v=${add[g.id] || ''} on=${v => setAdd(a => ({ ...a, [g.id]: v }))} ph="Nova tarefa… (Enter)" onEnter=${() => addItem(g.id)}/><${Btn} sz="sm" on=${() => addItem(g.id)}>Adicionar</${Btn}></div>`}
@@ -507,7 +509,7 @@ function WsMapas({ cl, portal }) {
   return html`<div>
     ${!portal && html`<div class="row mb12"><span style=${{ flex: 1 }}/><${Btn} v="pri" icon="plus" on=${() => setEdit({ visible: true })}>Novo mapa</${Btn}></div>`}
     <div class="grid g3">${maps.map(m => html`<div class="card" key=${m.id}>
-      <div class="row between"><b>🧠 ${m.title}</b>${!portal && html`<${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/>`}</div>
+      <div class="row between"><b>${m.title}</b>${!portal && html`<${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/>`}</div>
       ${m.desc && html`<div class="small muted mt8">${m.desc}</div>`}
       ${!portal && m.visible === false && html`<div class="xs faint mt8">oculto do cliente</div>`}
       ${m.link && html`<div class="mt12"><${Btn} sz="sm" icon="external" href=${m.link}>Abrir mapa</${Btn}></div>`}</div>`)}</div>

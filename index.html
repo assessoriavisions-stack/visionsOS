@@ -16,9 +16,9 @@
 <style>
 :root{
   color-scheme: light;
-  --bg:#f6f7f9; --surface:#ffffff; --surface-2:#fafbfc; --surface-3:#f1f2f5;
-  --border:#eceef1; --border-strong:#dee2e6;
-  --text:#272727; --text-2:#5a5a5a; --text-3:#8b9099;
+  --bg:#f6f7fb; --surface:#ffffff; --surface-2:#f9fafc; --surface-3:#f0f2f6;
+  --border:#e8eaf0; --border-strong:#d9dce4;
+  --text:#16181d; --text-2:#545862; --text-3:#8a8f9a;
   --primary:#3552c7; --primary-2:#4c6fe0; --primary-soft:#edf1fd; --primary-ink:#ffffff;
   --brand:#2050a0; --brand-2:#4c6fe0; --brand-soft:#edf1fd; --gold:#c7860a;
   --side:#ffffff; --side-2:#f4f5f7; --side-text:#5a5a5a; --side-active:#3552c7;
@@ -27,9 +27,10 @@
   --bad:#d82828; --bad-soft:#fdecec;
   --info:#2050a0; --info-soft:#edf1fd;
   --s1:#4c6fe0; --s2:#c7860a; --s3:#17a567; --s4:#ff6700; --s5:#ee7fac; --s6:#2050a0; --s7:#6a4ce2; --s8:#ec4647;
-  --shadow:0 1px 2px rgba(39,39,39,.04),0 1px 3px rgba(39,39,39,.05);
-  --shadow-lg:0 12px 40px rgba(39,39,39,.16);
-  --r:12px; --r-sm:8px;
+  --shadow:0 1px 2px rgba(16,24,40,.04);
+  --shadow-md:0 1px 2px rgba(16,24,40,.04),0 4px 12px rgba(16,24,40,.06);
+  --shadow-lg:0 24px 48px -12px rgba(16,24,40,.22);
+  --r:14px; --r-sm:10px;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
@@ -331,6 +332,122 @@ table.tbl{width:100%;border-collapse:collapse}
 }
 @media print{.side,.top,.fab,.mobile-nav,.no-print,.page-h .row,.toasts{display:none!important}.shell{display:block}body{background:#fff}.content{padding:0;max-width:none}.card,.kpi{box-shadow:none;break-inside:avoid}}
 @media (max-width:860px){.hide-sm{display:none}}
+
+/* ============================================================
+   Refresh visual v3 — mais leve e atual
+   ============================================================ */
+body{font-feature-settings:'cv11','ss01','ss03';letter-spacing:-.006em}
+h1,h2,h3,h4{letter-spacing:-.02em;font-weight:650}
+.page-h{margin-bottom:22px}
+.page-h h1{font-size:26px;font-weight:700;letter-spacing:-.03em}
+.page-h p,.page-h .sub{font-size:14px;color:var(--text-3)}
+.card{border-color:var(--border);box-shadow:var(--shadow);border-radius:var(--r)}
+.card-h h3{font-size:14.5px;font-weight:650}
+.kpi{border-radius:var(--r)}
+.kpi .v{font-weight:700;letter-spacing:-.03em}
+
+/* botões */
+.btn{height:34px;padding:0 14px;border-radius:10px;font-weight:550;font-size:13.5px;box-shadow:0 1px 2px rgba(16,24,40,.05);transition:background .12s,border-color .12s,box-shadow .12s,color .12s}
+.btn.sm{height:30px;padding:0 11px;font-size:13px;border-radius:9px}
+.btn.xs{height:26px;padding:0 9px;font-size:12px;border-radius:8px}
+.btn.icon{height:32px;width:32px;padding:0}
+.btn.pri{background:var(--primary-2);border-color:var(--primary-2);box-shadow:0 1px 2px rgba(53,82,199,.25),inset 0 1px 0 rgba(255,255,255,.18)}
+.btn.good{background:var(--good-soft);border-color:transparent;color:var(--good);box-shadow:none}
+.btn.good:hover{background:color-mix(in srgb,var(--good) 16%,transparent)}
+.btn.ghost{box-shadow:none}
+.btn:active{transform:none}
+
+/* campos */
+.inp{border-radius:10px;border-color:var(--border-strong);box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.fld>label{font-weight:550;color:var(--text-2);font-size:12.5px}
+
+/* segmentado */
+.seg{background:var(--surface-3);border-radius:10px;padding:3px}
+.seg button{display:inline-flex;align-items:center;gap:6px;font-weight:550;border-radius:8px;padding:5px 11px;color:var(--text-2)}
+.seg button:hover{color:var(--text)}
+.seg button.on{box-shadow:0 1px 2px rgba(16,24,40,.08),0 0 0 1px rgba(16,24,40,.04)}
+.seg .cnt,.tabs .cnt{font-size:11px;font-weight:600;background:var(--surface-3);color:var(--text-2);border-radius:20px;padding:0 7px;line-height:18px}
+.seg button.on .cnt{background:var(--primary-soft);color:var(--primary)}
+
+/* abas de página */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:20px;overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{display:inline-flex;align-items:center;gap:8px;border:0;background:none;padding:10px 12px 11px;margin-bottom:-1px;cursor:pointer;color:var(--text-3);font-weight:550;font-size:14px;white-space:nowrap;border-bottom:2px solid transparent;border-radius:8px 8px 0 0;transition:color .12s,background .12s}
+.tabs button:hover{color:var(--text);background:var(--surface-3)}
+.tabs button.on{color:var(--text);border-bottom-color:var(--primary-2)}
+.tabs button.on svg{color:var(--primary-2)}
+.tabs .cnt.hot{background:var(--bad);color:#fff}
+
+/* tags e pílulas */
+.tag{border-radius:6px;font-weight:550;padding:2px 7px;font-size:11.5px}
+.pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:2px 9px 2px 7px;border-radius:20px;white-space:nowrap;color:color-mix(in srgb,var(--pc) 82%,var(--text));background:color-mix(in srgb,var(--pc) 11%,transparent)}
+.pill i{width:6px;height:6px;border-radius:50%;background:var(--pc);flex:none}
+.meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:4px;font-size:12px;color:var(--text-3)}
+.meta .sep{width:3px;height:3px;border-radius:50%;background:var(--border-strong)}
+.meta b{color:var(--text-2);font-weight:600}
+
+/* listas */
+.lrow{padding:12px 16px;gap:14px;transition:background .1s}
+.lrow .main-t{font-weight:600;font-size:14px;color:var(--text)}
+.lgroup{font-size:12.5px;letter-spacing:0;text-transform:none;font-weight:650;color:var(--text);padding:12px 16px;background:var(--surface);align-items:center;gap:8px}
+.lgroup>span:last-child:not(:first-child){font-size:11.5px;font-weight:600;background:var(--surface-3);color:var(--text-2);border-radius:20px;padding:0 8px;line-height:20px}
+.lgroup.bad{color:var(--bad)}
+.subday{font-size:11.5px;font-weight:600;color:var(--text-3);padding:10px 16px 4px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.status-bar{width:3px;align-self:stretch;border-radius:3px;flex:none;margin:2px 0}
+.datebox{width:44px;flex:none;text-align:center;border:1px solid var(--border);border-radius:10px;padding:4px 0;background:var(--surface)}
+.datebox b{display:block;font-size:16px;line-height:1.2;font-weight:700;letter-spacing:-.02em}
+.datebox span{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);font-weight:600}
+.datebox.late{border-color:color-mix(in srgb,var(--bad) 40%,transparent);background:var(--bad-soft)}
+.datebox.late b{color:var(--bad)}
+.ck{width:18px;height:18px;accent-color:var(--good);flex:none;cursor:pointer}
+
+/* pessoas */
+.people{display:flex;gap:8px;flex-wrap:wrap}
+.person{display:inline-flex;align-items:center;gap:9px;border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:6px 12px 6px 6px;cursor:pointer;font-weight:600;box-shadow:var(--shadow);transition:border-color .12s,box-shadow .12s}
+.person:hover{border-color:var(--border-strong)}
+.person.on{border-color:var(--primary-2);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary-2) 15%,transparent)}
+.person small{display:block;font-size:11px;font-weight:500;color:var(--text-3);line-height:1.1}
+
+/* callouts */
+.callout{border-radius:12px;border:1px solid transparent;display:flex;gap:12px;align-items:flex-start}
+.callout>.ic{flex:none;margin-top:1px}
+.callout.good{border-color:color-mix(in srgb,var(--good) 18%,transparent)}
+.callout.warn{border-color:color-mix(in srgb,var(--warn) 22%,transparent)}
+.callout.bad{border-color:color-mix(in srgb,var(--bad) 18%,transparent)}
+.callout.info{border-color:color-mix(in srgb,var(--info) 18%,transparent)}
+.callout:not(.good):not(.warn):not(.bad):not(.info){background:var(--surface-2);border-color:var(--border)}
+
+/* barra lateral */
+.side{padding:18px 12px}
+.side .grp{letter-spacing:.08em;font-size:10.5px;font-weight:650;margin:18px 12px 6px}
+.side .it{padding:7px 10px;border-radius:8px;font-size:13.5px;color:var(--text-2);position:relative}
+.side .it svg{color:var(--text-3)}
+.side .it.on{background:var(--primary-soft);color:var(--primary)}
+.side .it.on svg{color:var(--primary-2)}
+.side .it.on:before{content:"";position:absolute;left:-12px;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--primary-2)}
+.top{background:color-mix(in srgb,var(--bg) 80%,transparent)}
+.top .ttl{font-weight:650;color:var(--text-2)}
+
+/* modal */
+.ov{background:rgba(16,24,40,.42);backdrop-filter:blur(3px)}
+.mdl{border-radius:18px;border:1px solid var(--border)}
+.mdl-h{padding:18px 22px;border-bottom:0}
+.mdl-h h3{font-size:17px;font-weight:650}
+.mdl-b{padding:4px 22px 20px}
+.mdl-f{background:var(--surface);border-top:1px solid var(--border);border-radius:0 0 18px 18px;padding:14px 22px}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;padding:12px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:12px}
+.kv div span{display:block;font-size:11.5px;color:var(--text-3);margin-bottom:2px}
+.kv div b{font-weight:600}
+
+/* kanban */
+.kcol{background:var(--surface-3);border-radius:14px}
+.kcard{border-radius:12px;box-shadow:var(--shadow)}
+.kcard:hover{box-shadow:var(--shadow-md);border-color:var(--border-strong)}
+.empty{padding:36px 12px}
+.empty b{font-weight:600;font-size:14.5px}
+.datebox.today{border-color:var(--primary-2);background:var(--primary-soft)}
+.datebox.today b,.datebox.today span{color:var(--primary)}
+a.btn{text-decoration:none}
 
 </style>
 </head>
@@ -1135,6 +1252,20 @@ const ICONS = {
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   external: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
   pause: 'M6 4h4v16H6zM14 4h4v16h-4z', play: 'M5 3l14 9-14 9z',
+  film: 'M4 4h16v16H4zM8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4',
+  map: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16',
+  key: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+  camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  checksq: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+  folder: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  eyeoff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+  mic: 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8',
+  trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
+  arrow: 'M5 12h14M12 5l7 7-7 7',
   star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z'
 };
 function Icon({ n, s = 18, w = 2, style }) {
@@ -1169,7 +1300,15 @@ function Textarea({ label, hint, v, on, ph, rows, cls }) {
   return html`<${Field} label=${label} hint=${hint} cls=${cls}><textarea class="inp" rows=${rows || 3} value=${v ?? ''} placeholder=${ph} onChange=${e => on(e.target.value)}/></${Field}>`;
 }
 function Seg({ v, on, opts }) {
-  return html`<div class="seg">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.l}</button>`)}</div>`;
+  return html`<div class="seg">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.icon && html`<${Icon} n=${o.icon} s=${14}/>`}${o.l}${o.n != null && html`<span class="cnt">${o.n}</span>`}</button>`)}</div>`;
+}
+/* abas de página (linha embaixo da aba ativa) */
+function Tabs({ v, on, opts }) {
+  return html`<div class="tabs">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.icon && html`<${Icon} n=${o.icon} s=${16}/>`}<span>${o.l}</span>${o.n != null && o.n !== '' && html`<span class=${'cnt' + (o.hot ? ' hot' : '')}>${o.n}</span>`}</button>`)}</div>`;
+}
+/* etapa / status como pílula com ponto colorido */
+function Pill({ c, children, title }) {
+  return html`<span class="pill" title=${title} style=${{ '--pc': c || 'var(--text-3)' }}><i/>${children}</span>`;
 }
 function Chips({ v, on, opts, multi }) {
   const isOn = x => (multi ? (v || []).includes(x) : v === x);
@@ -1954,7 +2093,7 @@ function postStages(type, capt) {
 const CLIENT_STAGES = ['Upload Drive (Cliente)', 'Aprovação (Cliente)', 'Aprovação de Roteiro (Cliente)'];
 const STAGE_DAYS = { 'Edição': 3, 'Edição de Arte': 3, 'Aprovação (Cliente)': 2, 'Aprovação Final (Cliente)': 2, 'Aprovação de Roteiro (Cliente)': 2 };
 const STAGE_RESP = { 'Criação': 'consultora', 'Gravação': 'leonardo', 'Edição': 'leonardo', 'Edição de Arte': 'designer', 'Postagem': 'leonardo' };
-const POST_TYPES = [{ v: 'video', l: '🎬 Vídeo' }, { v: 'arte', l: '🎨 Arte' }, { v: 'foto', l: '📸 Foto' }];
+const POST_TYPES = [{ v: 'video', l: 'Vídeo', icon: 'film' }, { v: 'arte', l: 'Arte', icon: 'image' }, { v: 'foto', l: 'Foto', icon: 'camera' }];
 const POST_PLATFORMS = ['Instagram', 'TikTok', 'YouTube', 'Site/Blog', 'LinkedIn'];
 const addBiz = (s, n) => { let d = s; let k = 0; while (k < n) { d = addDays(d, 1); if (!isWeekend(d)) k++; } return d; };
 const subBiz = (s, n) => { let d = s; let k = 0; while (k < n) { d = addDays(d, -1); if (!isWeekend(d)) k++; } return d; };
@@ -2037,7 +2176,7 @@ function OperacaoPage({ nav }) {
             return html`<div key=${c.id} class="kcard" draggable="true" onDragStart=${() => setDrag(c.id)} onClick=${() => nav.client(c.id)}>
               <div class="row between"><div class="nm ellipsis">${c.name}</div>${m > 0 && html`<span class="xs b num" style=${{ color: 'var(--good)' }}>${money(m)}</span>`}</div>
               <div class="co ellipsis">${c.segment || '—'}</div>
-              <div class="meta"><${Tag}>👤 ${colabName(cs, c.responsible)}</${Tag}>${c.code && html`<${Tag} t="pri">${c.code}</${Tag}>`}${days != null && html`<span class="xs faint" style=${{ marginLeft: 'auto' }}>${days}d</span>`}</div>
+              <div class="meta"><${Tag}>${colabName(cs, c.responsible)}</${Tag}>${c.code && html`<${Tag} t="pri">${c.code}</${Tag}>`}${days != null && html`<span class="xs faint" style=${{ marginLeft: 'auto' }}>${days}d</span>`}</div>
             </div>`; })}
           ${!col.length && html`<div class="xs faint" style=${{ textAlign: 'center', padding: 12 }}>—</div>`}
         </div>`; })}</div>`}
@@ -2073,7 +2212,7 @@ function ClientOpsForm({ c, list, save, cs, onClose, onCreated }) {
 }
 
 /* ---------- espaço do cliente ---------- */
-const WS_TABS = [{ v: 'briefing', l: '📝 Briefing' }, { v: 'posts', l: '📋 Posts' }, { v: 'relatorio', l: '📊 Relatório' }, { v: 'crm', l: '🤝 CRM' }, { v: 'ck', l: '✅ Checklist' }, { v: 'rot', l: '🎬 Roteiro' }, { v: 'mapas', l: '🧠 Mapas mentais' }, { v: 'instagram', l: '📈 Instagram', agency: true }];
+const WS_TABS = [{ v: 'briefing', l: 'Briefing', icon: 'file' }, { v: 'posts', l: 'Posts', icon: 'image' }, { v: 'relatorio', l: 'Relatório', icon: 'chart' }, { v: 'crm', l: 'CRM', icon: 'users' }, { v: 'ck', l: 'Checklist', icon: 'checksq' }, { v: 'rot', l: 'Roteiro', icon: 'film' }, { v: 'mapas', l: 'Mapas mentais', icon: 'map' }, { v: 'instagram', l: 'Instagram', icon: 'camera', agency: true }];
 function ClientWorkspace({ id, nav, portal }) {
   const db = useDB();
   const [clients, saveClients, loading] = useDoc(V6('clients'), []);
@@ -2089,18 +2228,20 @@ function ClientWorkspace({ id, nav, portal }) {
   const cts = vals(db.contracts).filter(k => k.clientId === 'v6c_' + cl.id && contractStatus(k) !== 'encerrado');
   const P = { briefing: WsBriefing, posts: WsPosts, relatorio: WsReport, crm: WsCRM, ck: WsChecklist, rot: WsRoteiro, mapas: WsMapas, instagram: WsInstagram }[portal && tab === 'instagram' ? 'posts' : tab];
   return html`<div>
-    ${!portal && html`<div class="row wrap mb12" style=${{ gap: 10 }}>
+    ${!portal && html`<div class="row wrap mb16" style=${{ gap: 14, alignItems: 'flex-start' }}>
       <${Btn} sz="sm" v="ghost" icon="left" on=${() => nav.go('operacao')}>Clientes</${Btn}>
-      <h1 style=${{ fontSize: 22 }}>${cl.name}</h1>
-      <${Tag} style=${{ background: 'var(--surface-3)' }}><span class="dot" style=${{ background: stg.c }}/> ${stg.l}</${Tag}>
-      ${cl.segment && html`<span class="muted small">${cl.segment}</span>`}
-      <span style=${{ flex: 1 }}/>
-      ${cts.length > 0 && html`<span class="small muted">${cts.map(k => prodName(db.S, k.productId).split(' (')[0]).join(' · ')} · <b>${money(sum(cts.filter(k => contractActiveIn(k, ymNow())), brlValue))}/mês</b></span>`}
-      ${cl.onedrive && html`<${Btn} sz="sm" icon="external" href=${cl.onedrive}>Drive</${Btn}>`}
-      <${Btn} sz="sm" icon="users" on=${() => nav.preview(cl.id)} title="Ver o que o cliente vê no portal">Portal · ${cl.code || 'sem código'}</${Btn}>
-      <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
+      <${Avatar} name=${cl.name} size=${44}/>
+      <div style=${{ flex: '1 1 300px', minWidth: 0 }}>
+        <div class="row wrap" style=${{ gap: 10 }}><h1 style=${{ fontSize: 24, letterSpacing: '-.03em' }}>${cl.name}</h1><${Pill} c=${stg.c}>${stg.l}</${Pill}></div>
+        <div class="meta">${cl.segment && html`<span>${cl.segment}</span><i class="sep"/>`}${cts.length > 0 ? html`<span>${[...new Set(cts.map(k => prodName(db.S, k.productId).split(' (')[0]))].join(' · ')}</span><i class="sep"/><b>${money(sum(cts.filter(k => contractActiveIn(k, ymNow())), brlValue))}/mês</b>` : html`<span>sem contrato ativo</span>`}</div>
+      </div>
+      <div class="row wrap" style=${{ gap: 8 }}>
+        ${cl.onedrive && html`<${Btn} sz="sm" icon="folder" href=${cl.onedrive}>Drive</${Btn}>`}
+        <${Btn} sz="sm" icon="eye" on=${() => nav.preview(cl.id)} title="Ver o que o cliente vê no portal">Portal · ${cl.code || 'sem código'}</${Btn}>
+        <${Btn} sz="sm" icon="edit" on=${() => setEdit(true)}>Editar</${Btn}>
+      </div>
     </div>`}
-    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${WS_TABS.filter(t => !(portal && t.agency)).map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
+    <${Tabs} v=${tab} on=${setTab} opts=${WS_TABS.filter(t => !(portal && t.agency))}/>
     <${P} cl=${cl} cs=${cs} portal=${portal} nav=${nav}/>
     ${edit && html`<${ClientOpsForm} c=${cl} list=${asArr(clients)} save=${saveClients} cs=${cs} onClose=${() => setEdit(false)}/>`}
   </div>`;
@@ -2139,27 +2280,27 @@ function WsPosts({ cl, cs, portal }) {
   const del = async id => { if (!confirm('Excluir este post de vez?')) return; await docSave(V6C(cl.id, 'posts'), posts.filter(x => x.id !== id)); };
   return html`<div>
     <div class="row wrap mb12">
-      <span class="small muted">${act.length} ativos${late ? html` · <b style=${{ color: 'var(--bad)' }}>⚠ ${late} ${portal ? 'esperando você há mais tempo que o combinado' : 'atrasados'}</b>` : ''}${mine.length ? html` · <b style=${{ color: 'var(--warn)' }}>${mine.length} aguardando ${portal ? 'você' : 'o cliente'}</b>` : ''}</span>
+      <span class="small muted">${act.length} ativos${late ? html` · <b style=${{ color: 'var(--bad)' }}>${late} ${portal ? 'esperando você há mais tempo que o combinado' : 'atrasados'}</b>` : ''}${mine.length ? html` · <b style=${{ color: 'var(--warn)' }}>${mine.length} aguardando ${portal ? 'você' : 'o cliente'}</b>` : ''}</span>
       <span style=${{ flex: 1 }}/>
       ${!portal && html`<${Btn} v="pri" icon="plus" on=${() => setEdit({})}>Novo post</${Btn}>`}
     </div>
     ${portal && mine.length > 0 && html`<div class="callout warn mb12"><b class="t">${mine.length} post(s) esperando você</b>Aprove os roteiros e vídeos ou envie o material. Se algo precisar mudar, clique em "Pedir ajuste" e explique.</div>`}
-    ${!portal && html`<div class="row wrap mb12"><${Seg} v=${view} on=${setView} opts=${[{ v: 'ativos', l: 'Todos ativos' }].concat(POST_TYPES).concat([{ v: 'arquivados', l: '📦 Arquivados' }])}/><${Seg} v=${plat} on=${setPlat} opts=${[{ v: '', l: 'Todas' }].concat(POST_PLATFORMS.map(p => ({ v: p, l: p })))}/></div>`}
+    ${!portal && html`<div class="row wrap mb12"><${Seg} v=${view} on=${setView} opts=${[{ v: 'ativos', l: 'Todos ativos' }].concat(POST_TYPES).concat([{ v: 'arquivados', l: 'Arquivados', icon: 'archive' }])}/><${Seg} v=${plat} on=${setPlat} opts=${[{ v: '', l: 'Todas' }].concat(POST_PLATFORMS.map(p => ({ v: p, l: p })))}/></div>`}
     <div class="card flush">
       ${list.map(p => { const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage); const lateP = lateOf(p); const resp = STAGE_RESP[p.stage];
-        return html`<div class="lrow" key=${p.id} style=${{ alignItems: 'flex-start', flexWrap: 'wrap', borderLeft: '3px solid ' + (lateP ? 'var(--bad)' : stageColor(p.stage)) }}>
-          <div style=${{ width: 54, textAlign: 'center' }}><div class="b num">${p.postDate ? pad(parseD(p.postDate).getDate()) : '—'}</div><div class="xs faint">${p.postDate ? MSHORT[parseD(p.postDate).getMonth()] : ''}</div></div>
+        return html`<div class="lrow" key=${p.id} style=${{ alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <${DateBox} d=${p.postDate} late=${lateP}/>
           <div style=${{ flex: '1 1 280px', minWidth: 0, cursor: portal ? null : 'pointer' }} onClick=${() => !portal && setEdit(p)}>
             <div class="main-t">${p.theme || '(sem tema)'}</div>
             <div class="row wrap mt8" style=${{ gap: 6, marginTop: 4 }}>
-              <${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${(POST_TYPES.find(t => t.v === p.postType) || {}).l || p.postType}</${Tag}>
-              <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${portal && !isClientStage(p.stage) && p.stage !== 'Postagem' ? 'Em produção · ' + p.stage : p.stage}</${Tag}>
-              ${lateP && html`<${Tag} t="bad">⚠ atrasado</${Tag}>`}${p.rejected && html`<${Tag} t="bad" style=${{ whiteSpace: 'normal' }}>ajuste pedido${p.rejectionNote ? ': ' + p.rejectionNote : ''}</${Tag}>`}
+              <${Pill} c=${stageColor(p.stage)}>${portal && !isClientStage(p.stage) && p.stage !== 'Postagem' ? 'Em produção · ' + p.stage : p.stage}</${Pill}>
+              <span class="xs faint">${(POST_TYPES.find(t => t.v === p.postType) || {}).l || p.postType} · ${p.platform || 'Instagram'}</span>
+              ${lateP && html`<${Pill} c="var(--bad)">Atrasado</${Pill}>`}${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido${p.rejectionNote ? ': ' + p.rejectionNote : ''}</${Pill}>`}
               ${!portal && resp && html`<span class="xs faint">· ${colabName(cs, resp)}</span>`}
               ${!portal && postDeadline(p) && html`<span class="xs faint">· prazo ${fdate(postDeadline(p))}</span>`}
             </div>
             ${i >= 0 && html`<div class="row mt8" style=${{ gap: 3 }}>${st.map((s, k) => html`<span key=${k} title=${s} style=${{ height: 4, flex: 1, maxWidth: 40, borderRadius: 4, background: k <= i ? stageColor(p.stage) : 'var(--surface-3)' }}/>`)}</div>`}
-            ${(p.driveLink || p.artLink) && html`<div class="xs mt8">${p.driveLink && html`<a href=${p.driveLink} target="_blank" rel="noopener">📁 Drive</a>`} ${p.artLink && html`<a href=${p.artLink} target="_blank" rel="noopener">🎨 Arte</a>`}</div>`}
+            ${(p.driveLink || p.artLink) && html`<div class="xs mt8">${p.driveLink && html`<a href=${p.driveLink} target="_blank" rel="noopener">Drive ↗</a>`} ${p.artLink && html`<a href=${p.artLink} target="_blank" rel="noopener">Arte ↗</a>`}</div>`}
           </div>
           <div class="row wrap" style=${{ justifyContent: 'flex-end' }}>
             ${portal ? (isClientStage(p.stage) && html`
@@ -2168,7 +2309,7 @@ function WsPosts({ cl, cs, portal }) {
             : html`
               <${Btn} sz="xs" icon="left" on=${() => movePost(cl.id, posts, todos, p.id, -1)} disabled=${i <= 0}>Voltar</${Btn}>
               ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="xs" v="good" on=${() => movePost(cl.id, posts, todos, p.id, 1)}>→ ${st[i + 1].replace(' (Cliente)', '')}</${Btn}>`}
-              ${!p.archived && html`<${Btn} sz="xs" v="ghost" on=${() => arch(p.id)} title="Arquivar">📦</${Btn}>`}
+              ${!p.archived && html`<${Btn} sz="xs" v="ghost" on=${() => arch(p.id)} title="Arquivar" icon="archive"/>`}
               <${Btn} sz="xs" v="ghost" cls="danger" icon="trash" on=${() => del(p.id)}/>`}
           </div>
         </div>`; })}
@@ -2348,7 +2489,7 @@ function WsChecklist({ cl, portal }) {
           <div style=${{ flex: 1, minWidth: 0 }}><div class=${i.done ? 'faint' : ''} style=${{ textDecoration: i.done ? 'line-through' : null }}>${i.text}</div>
             <div class="xs faint">${(CK_CATS.find(c => c.v === i.category) || {}).l || i.category || ''}${i.deadline ? ' · prazo ' + fdate(i.deadline) : ''}${!portal && i.visivel === false ? ' · oculto do cliente' : ''}</div></div>
           ${!portal && html`<input class="inp sm" type="date" value=${i.deadline || ''} style=${{ width: 140 }} onChange=${e => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, deadline: e.target.value } : x)) }))}/>
-            <button class="btn xs ghost" title="Mostrar/ocultar no portal" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, visivel: x.visivel === false } : x)) }))}>${i.visivel === false ? '🙈' : '👁'}</button>
+            <button class="btn xs ghost" title="Mostrar/ocultar no portal" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.map(x => (x.id === i.id ? { ...x, visivel: x.visivel === false } : x)) }))}><${Icon} n=${i.visivel === false ? 'eyeoff' : 'eye'} s=${15}/></button>
             <button class="btn xs ghost danger" onClick=${() => upd(g.id, gg => ({ ...gg, items: gg.items.filter(x => x.id !== i.id) }))}>×</button>`}
         </div>`)}
         ${!portal && html`<div class="row" style=${{ padding: 10 }}><${Input} sm=${true} v=${add[g.id] || ''} on=${v => setAdd(a => ({ ...a, [g.id]: v }))} ph="Nova tarefa… (Enter)" onEnter=${() => addItem(g.id)}/><${Btn} sz="sm" on=${() => addItem(g.id)}>Adicionar</${Btn}></div>`}
@@ -2387,7 +2528,7 @@ function WsMapas({ cl, portal }) {
   return html`<div>
     ${!portal && html`<div class="row mb12"><span style=${{ flex: 1 }}/><${Btn} v="pri" icon="plus" on=${() => setEdit({ visible: true })}>Novo mapa</${Btn}></div>`}
     <div class="grid g3">${maps.map(m => html`<div class="card" key=${m.id}>
-      <div class="row between"><b>🧠 ${m.title}</b>${!portal && html`<${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/>`}</div>
+      <div class="row between"><b>${m.title}</b>${!portal && html`<${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/>`}</div>
       ${m.desc && html`<div class="small muted mt8">${m.desc}</div>`}
       ${!portal && m.visible === false && html`<div class="xs faint mt8">oculto do cliente</div>`}
       ${m.link && html`<div class="mt12"><${Btn} sz="sm" icon="external" href=${m.link}>Abrir mapa</${Btn}></div>`}</div>`)}</div>
@@ -2407,10 +2548,12 @@ function WsMapas({ cl, portal }) {
    vos6_c<id>_posts e os lembretes vos6_day15_/boletos_/relcamp_.
    ============================================================ */
 const INT_TABS = [
-  { v: 'pendencias', l: '⚡ Pendências' }, { v: 'overview', l: '📆 Overview semanal' }, { v: 'cronograma', l: '📅 Cronograma' },
-  { v: 'reunioes', l: '📋 Reuniões' }, { v: 'acessos', l: '🔑 Acessos' }, { v: 'membros', l: '👥 Membros' }
+  { v: 'pendencias', l: 'Pendências', icon: 'zap' }, { v: 'overview', l: 'Overview semanal', icon: 'grid' }, { v: 'cronograma', l: 'Cronograma', icon: 'cal' },
+  { v: 'reunioes', l: 'Reuniões', icon: 'mic' }, { v: 'acessos', l: 'Acessos', icon: 'key' }, { v: 'membros', l: 'Membros', icon: 'users' }
 ];
 const activePost = p => p && !p.archived && p.stage !== 'Arquivado';
+const StagePill = ({ p }) => html`<${Pill} c=${stageColor(p.stage)}>${p.stage}</${Pill}>`;
+const DateBox = ({ d, late }) => (d ? html`<div class=${'datebox' + (late ? ' late' : '')}><b>${parseD(d).getDate()}</b><span>${MSHORT[parseD(d).getMonth()]}</span></div>` : html`<div class="datebox"><b>–</b><span>s/data</span></div>`);
 const typeLabel = t => (POST_TYPES.find(x => x.v === t) || {}).l || t || '';
 const stageResp = p => STAGE_RESP[p.stage] || p.responsible || '';
 const weekStart = d => { const dt = parseD(d); const dow = dt.getDay(); return addDays(d, dow === 0 ? -6 : 1 - dow); };
@@ -2460,7 +2603,7 @@ function InternoPage({ nav }) {
   const P = { pendencias: IntPendencias, overview: IntOverview, cronograma: IntCronograma, reunioes: IntReunioes, acessos: IntAcessos, membros: IntMembros }[tab];
   return html`<div>
     <div class="page-h"><div><h1>Interno</h1><p class="sub">Gestão operacional da agência: pendências de cada pessoa, posts da semana, reuniões e acessos.</p></div></div>
-    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${tabs.map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
+    <${Tabs} v=${tab} on=${setTab} opts=${tabs}/>
     <${P} nav=${nav} cs=${cs} internal=${internal || {}}/>
   </div>`;
 }
@@ -2472,42 +2615,47 @@ function PostPeek({ p, cs, nav, onClose }) {
   const run = async fn => { setBusy(true); try { await fn(); } finally { setBusy(false); } onClose(); };
   const dl = postDeadline(p);
   return html`<${Modal} title=${p.theme || '(sem tema)'} onClose=${onClose} footer=${html`
-      <${Btn} v="ghost" on=${() => { onClose(); nav.client(p._clId); }}>Abrir ${p._clName}</${Btn}><span style=${{ flex: 1 }}/>
-      ${i > 0 && html`<${Btn} icon="left" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, -1))}>Voltar</${Btn}>`}
-      ${i >= 0 && i < st.length - 1 && html`<${Btn} v="good" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, 1).then(() => toast('Post avançou para ' + st[i + 1] + '.')))}>→ ${st[i + 1]}</${Btn}>`}
-      ${p.stage === 'Postagem' && html`<${Btn} v="pri" disabled=${busy} on=${() => run(() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.')))}>✓ Marcar postado</${Btn}>`}`}>
-    <div class="row wrap mb12" style=${{ gap: 6 }}>
-      <${Tag} t="pri">${p._clName}</${Tag}><${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${typeLabel(p.postType)}</${Tag}>
-      <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-      ${postLate(p) && html`<${Tag} t="bad">⚠ etapa atrasada</${Tag}>`}
+      <${Btn} v="ghost" icon="external" on=${() => { onClose(); nav.client(p._clId); }}>Abrir ${p._clName}</${Btn}><span style=${{ flex: 1 }}/>
+      ${i > 0 && html`<${Btn} icon="left" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, -1))}>Voltar etapa</${Btn}>`}
+      ${i >= 0 && i < st.length - 1 && html`<${Btn} v="pri" icon="arrow" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, 1).then(() => toast('Post avançou para ' + st[i + 1] + '.')))}>${st[i + 1]}</${Btn}>`}
+      ${p.stage === 'Postagem' && html`<${Btn} v="pri" icon="check" disabled=${busy} on=${() => run(() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.')))}>Marcar como postado</${Btn}>`}`}>
+    <div class="row wrap mb12" style=${{ gap: 8 }}>
+      <${StagePill} p=${p}/>
+      <span class="meta" style=${{ marginTop: 0 }}><b>${p._clName}</b><i class="sep"/>${p.platform || 'Instagram'}<i class="sep"/>${typeLabel(p.postType)}</span>
+      ${postLate(p) && html`<${Pill} c="var(--bad)">Etapa atrasada</${Pill}>`}
     </div>
-    <div class="grid g3 mb12 small">
-      <div><div class="xs faint">Data do post</div><b>${p.postDate ? fdate(p.postDate) : '—'}</b></div>
-      <div><div class="xs faint">Prazo da etapa</div><b style=${{ color: postLate(p) ? 'var(--bad)' : null }}>${dl ? fdate(dl) : '—'}</b></div>
-      <div><div class="xs faint">Responsável</div><b>${isClientStage(p.stage) ? 'Cliente' : colabName(cs, stageResp(p))}</b></div>
-      <div><div class="xs faint">Captação</div><b>${p.captacao === 'cliente' ? 'Cliente' : 'Agência'}</b></div>
+    ${i >= 0 && html`<div class="row mb12" style=${{ gap: 4 }}>${st.map((s, k) => html`<span key=${k} title=${s} style=${{ height: 5, flex: 1, borderRadius: 5, background: k <= i ? stageColor(p.stage) : 'var(--surface-3)' }}/>`)}</div>`}
+    <div class="kv mb12">
+      <div><span>Data do post</span><b>${p.postDate ? fdate(p.postDate) : '—'}</b></div>
+      <div><span>Prazo da etapa</span><b style=${{ color: postLate(p) ? 'var(--bad)' : null }}>${dl ? fdate(dl) : '—'}</b></div>
+      <div><span>Responsável</span><b>${isClientStage(p.stage) ? 'Cliente' : colabName(cs, stageResp(p))}</b></div>
+      <div><span>Captação</span><b>${p.captacao === 'cliente' ? 'Cliente' : 'Agência'}</b></div>
     </div>
-    ${p.rejected && html`<div class="callout bad mb12"><b class="t">Cliente pediu ajuste</b>${p.rejectionNote || 'Sem observação.'}</div>`}
+    ${p.rejected && html`<div class="callout bad mb12"><${Icon} n="alert" s=${18}/><div><b class="t">Cliente pediu ajuste</b>${p.rejectionNote || 'Sem observação.'}</div></div>`}
     <${Textarea} label="Roteiro / legenda" v=${cap} on=${setCap} rows=${6}/>
     <div class="row wrap mt8">
       ${cap !== (p.caption || '') && html`<${Btn} sz="sm" v="pri" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap }).then(() => toast('Legenda salva.')))}>Salvar legenda</${Btn}>`}
-      ${p.rejected && html`<${Btn} sz="sm" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap, rejected: false }).then(() => toast('Ajuste marcado como resolvido.')))}>✓ Ajuste resolvido</${Btn}>`}
-      ${p.driveLink && html`<${Btn} sz="sm" icon="external" href=${p.driveLink}>Drive</${Btn}>`}${p.artLink && html`<${Btn} sz="sm" icon="external" href=${p.artLink}>Arte</${Btn}>`}
+      ${p.rejected && html`<${Btn} sz="sm" icon="check" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap, rejected: false }).then(() => toast('Ajuste marcado como resolvido.')))}>Ajuste resolvido</${Btn}>`}
+      ${p.driveLink && html`<${Btn} sz="sm" icon="folder" href=${p.driveLink}>Drive</${Btn}>`}${p.artLink && html`<${Btn} sz="sm" icon="image" href=${p.artLink}>Arte</${Btn}>`}
     </div>
   </${Modal}>`;
 }
-function PostChip({ p, cs, showClient, late, onClick }) {
-  return html`<div class="lrow" style=${{ cursor: 'pointer', alignItems: 'flex-start', borderLeft: '3px solid ' + (late ? 'var(--bad)' : stageColor(p.stage)) }} onClick=${onClick}>
+function PostChip({ p, cs, showClient, late, onClick, noDate }) {
+  const resp = !isClientStage(p.stage) && p.stage !== 'Arquivado' && stageResp(p);
+  return html`<div class="lrow" style=${{ cursor: 'pointer' }} onClick=${onClick}>
+    ${!noDate && html`<${DateBox} d=${p.postDate} late=${late}/>`}
     <div style=${{ flex: 1, minWidth: 0 }}>
-      <div class="main-t" style=${{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>${p.theme || '(sem tema)'}</div>
-      <div class="row wrap" style=${{ gap: 6, marginTop: 4 }}>
-        ${showClient && html`<b class="xs">${p._clName}</b>`}
-        <${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${typeLabel(p.postType)}</${Tag}>
-        <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-        ${p.postDate && html`<span class="xs faint">📅 ${fdate(p.postDate)}</span>`}
-        ${!isClientStage(p.stage) && stageResp(p) && p.stage !== 'Arquivado' && html`<span class="xs faint">· ${colabName(cs, stageResp(p))}</span>`}
-        ${late && html`<${Tag} t="bad">⚠ atrasado</${Tag}>`}${p.rejected && html`<${Tag} t="bad">ajuste pedido</${Tag}>`}
+      <div class="main-t ellipsis">${p.theme || '(sem tema)'}</div>
+      <div class="meta">
+        ${showClient && html`<b>${p._clName}</b><i class="sep"/>`}
+        <span>${typeLabel(p.postType)}</span><i class="sep"/><span>${p.platform || 'Instagram'}</span>
+        ${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido</${Pill}>`}
       </div>
+    </div>
+    <div class="row hide-sm" style=${{ gap: 10 }}>
+      ${late && html`<${Pill} c="var(--bad)">Atrasado</${Pill}>`}
+      <${StagePill} p=${p}/>
+      ${resp ? html`<span title=${colabName(cs, resp)}><${Avatar} name=${colabName(cs, resp)} size=${24}/></span>` : html`<span style=${{ width: 24 }}/>`}
     </div>
   </div>`;
 }
@@ -2531,21 +2679,22 @@ function IntOverview({ cs, nav }) {
   return html`<div>
     <div class="card mb12"><div class="row wrap" style=${{ gap: 10 }}>
       <${Seg} v=${group} on=${setGroup} opts=${[{ v: 'semana', l: 'Por semana' }, { v: 'mes', l: 'Por mês' }]}/>
-      <div class="row" style=${{ gap: 4 }}><${Btn} sz="sm" icon="left" on=${() => shift(-1)}/><input class="inp sm" type="date" value=${date} onChange=${e => e.target.value && setDate(e.target.value)} style=${{ width: 150 }}/><${Btn} sz="sm" on=${() => shift(1)}>›</${Btn}><${Btn} sz="sm" v="ghost" on=${() => setDate(today())}>Hoje</${Btn}></div>
-      <b class="small">${label}</b>
+      <div class="month-nav"><${Btn} sz="xs" v="ghost" icon="left" on=${() => shift(-1)}/><b>${label}</b><${Btn} sz="xs" v="ghost" icon="right" on=${() => shift(1)}/></div>
+      <input class="inp sm" type="date" value=${date} onChange=${e => e.target.value && setDate(e.target.value)} style=${{ width: 150 }}/><${Btn} sz="sm" v="ghost" on=${() => setDate(today())}>Hoje</${Btn}>
       <span style=${{ flex: 1 }}/>
       <select class="inp sm" style=${{ width: 200 }} value=${cli} onChange=${e => setCli(e.target.value)}><option value="">Todos os clientes</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}</select>
     </div>
     <div class="row wrap mt12" style=${{ gap: 10 }}>
       <${Seg} v=${type} on=${setType} opts=${[{ v: '', l: 'Todos' }].concat(POST_TYPES)}/>
-      <${Seg} v=${by} on=${setBy} opts=${[{ v: 'cliente', l: '👤 Por cliente' }, { v: 'dia', l: '📅 Por dia' }]}/>
-      <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''}${late ? html` · <b style=${{ color: 'var(--bad)' }}>⚠ ${late} atrasado${late > 1 ? 's' : ''}</b>` : ''}</span>
+      <${Seg} v=${by} on=${setBy} opts=${[{ v: 'cliente', l: 'Por cliente', icon: 'users' }, { v: 'dia', l: 'Por dia', icon: 'cal' }]}/>
+      <span style=${{ flex: 1 }}/>
+      <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''}</span>${late > 0 && html`<${Pill} c="var(--bad)">${late} atrasado${late > 1 ? 's' : ''}</${Pill}>`}
     </div></div>
     ${loading && !posts.length ? html`<div class="card"><${Empty} t="Carregando posts…" s=""/></div>`
       : !list.length ? html`<div class="card"><${Empty} t="Nenhum post neste período" s="Os posts aparecem aqui pela data de postagem."/></div>`
       : html`<div class=${by === 'cliente' ? 'grid g2' : ''}>${keys.map(k => html`<div class="card flush mb12" key=${k}>
           <div class="lgroup"><span>${by === 'dia' ? longDay(k) : k}</span><span>${groups[k].length}</span></div>
-          ${groups[k].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${by === 'dia'} late=${isLate(p)} onClick=${() => setPeek(p)}/>`)}
+          ${groups[k].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${by === 'dia'} late=${isLate(p)} noDate=${by === 'dia'} onClick=${() => setPeek(p)}/>`)}
         </div>`)}</div>`}
     ${peek && html`<${PostPeek} p=${peek} cs=${cs} nav=${nav} onClose=${() => setPeek(null)}/>`}
   </div>`;
@@ -2560,7 +2709,7 @@ function IntCronograma({ cs, nav }) {
   const days = Object.keys(byDay).sort();
   return html`<div>
     <div class="card mb12"><div class="row wrap" style=${{ gap: 10 }}>
-      <${Btn} sz="sm" icon="left" on=${() => setYm(addMonths(ym, -1))}/><b style=${{ minWidth: 140, textAlign: 'center' }}>${monthLabel(ym)}</b><${Btn} sz="sm" on=${() => setYm(addMonths(ym, 1))}>›</${Btn}>
+      <div class="month-nav"><${Btn} sz="xs" v="ghost" icon="left" on=${() => setYm(addMonths(ym, -1))}/><b>${monthLabel(ym)}</b><${Btn} sz="xs" v="ghost" icon="right" on=${() => setYm(addMonths(ym, 1))}/></div>
       <select class="inp sm" style=${{ width: 200 }} value=${cli} onChange=${e => setCli(e.target.value)}><option value="">Todos os clientes</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}</select>
       <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''} no mês</span>
     </div></div>
@@ -2568,9 +2717,9 @@ function IntCronograma({ cs, nav }) {
       : !days.length ? html`<div class="card"><${Empty} t="Nenhum post com data neste mês" s="Adicione posts no espaço de cada cliente com a data de postagem."/></div>`
       : days.map(d => { const dt = parseD(d); const we = dt.getDay() === 0 || dt.getDay() === 6;
         return html`<div class="row mb8" key=${d} style=${{ alignItems: 'flex-start', gap: 12 }}>
-          <div class="card tight" style=${{ width: 60, textAlign: 'center', padding: '6px 4px', flexShrink: 0, borderColor: we ? 'var(--warn)' : null }}>
-            <div class="xs faint">${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}</div><div class="b" style=${{ fontSize: 20 }}>${dt.getDate()}</div></div>
-          <div class="card flush" style=${{ flex: 1, minWidth: 0 }}>${byDay[d].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${true} late=${postLate(p)} onClick=${() => setPeek(p)}/>`)}</div>
+          <div class=${'datebox' + (d === today() ? ' today' : '')} style=${{ width: 56, padding: '8px 0', background: we ? 'var(--surface-3)' : null }}>
+            <span>${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dt.getDay()]}</span><b style=${{ fontSize: 20 }}>${dt.getDate()}</b></div>
+          <div class="card flush" style=${{ flex: 1, minWidth: 0 }}>${byDay[d].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${true} noDate=${true} late=${postLate(p)} onClick=${() => setPeek(p)}/>`)}</div>
         </div>`; })}
     ${peek && html`<${PostPeek} p=${peek} cs=${cs} nav=${nav} onClose=${() => setPeek(null)}/>`}
   </div>`;
@@ -2607,70 +2756,87 @@ function IntPendencias({ cs, nav }) {
     .concat(myMan.filter(m => !m.done).map(m => ({ k: 'm' + m.id, type: 'man', date: m.deadline || '', m })))
     .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
   const mon = weekStart(t), sun = addDays(mon, 6), nsun = addDays(mon, 13);
-  const bucket = d => (!d ? 'Sem data' : d < t ? '⚠️ Atrasado' : d <= sun ? '🔥 Esta semana' : d <= nsun ? '📅 Semana que vem' : '🗓 Futuro');
-  const ORDER = ['⚠️ Atrasado', '🔥 Esta semana', '📅 Semana que vem', '🗓 Futuro', 'Sem data'];
-  const dayLbl = d => (!d ? 'Sem data' : d === t ? '📌 Hoje — ' + fdate(d) : d === addDays(t, 1) ? '📌 Amanhã — ' + fdate(d) : longDay(d));
-  const lateCount = items.filter(x => x.date && x.date < t).length;
+  const BUCKETS = [{ k: 'late', l: 'Atrasado', c: 'var(--bad)' }, { k: 'week', l: 'Esta semana', c: 'var(--warn)' }, { k: 'next', l: 'Semana que vem', c: 'var(--s1)' }, { k: 'later', l: 'Mais pra frente', c: 'var(--text-3)' }, { k: 'none', l: 'Sem data', c: 'var(--text-3)' }];
+  const bucket = d => (!d ? 'none' : d < t ? 'late' : d <= sun ? 'week' : d <= nsun ? 'next' : 'later');
+  const dayLbl = d => (!d ? 'Sem data' : d === t ? 'Hoje · ' + fdate(d) : d === addDays(t, 1) ? 'Amanhã · ' + fdate(d) : longDay(d));
+  const lateCount = items.filter(x => bucket(x.date) === 'late').length;
+  const weekCount = items.filter(x => bucket(x.date) === 'week').length;
 
   const Item = ({ x }) => {
-    if (x.type === 'post') { const p = x.p; const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage);
-      return html`<div class="lrow" style=${{ alignItems: 'flex-start', flexWrap: 'wrap', borderLeft: '3px solid ' + (x.date && x.date < t ? 'var(--bad)' : stageColor(p.stage)) }}>
+    const late = bucket(x.date) === 'late';
+    if (x.type === 'post') { const p = x.p; const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage); const dl = postDeadline(p);
+      return html`<div class="lrow" style=${{ flexWrap: 'wrap' }}>
+        <span class="status-bar" style=${{ background: late ? 'var(--bad)' : stageColor(p.stage) }}/>
         <div style=${{ flex: '1 1 260px', minWidth: 0, cursor: 'pointer' }} onClick=${() => setPeek(p)}>
           <div class="main-t">${p.theme || '(sem tema)'}</div>
-          <div class="row wrap" style=${{ gap: 6, marginTop: 4 }}><b class="xs">${p._clName}</b><${Tag}>${typeLabel(p.postType)}</${Tag}>
-            <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-            ${p.postDate && html`<span class="xs faint">📅 post ${fdate(p.postDate)}</span>`}${postDeadline(p) && html`<span class="xs" style=${{ color: postLate(p) ? 'var(--bad)' : 'var(--warn)', fontWeight: 600 }}>⏰ prazo ${fdate(postDeadline(p))}</span>`}
-            ${p.rejected && html`<${Tag} t="bad">ajuste pedido</${Tag}>`}</div>
+          <div class="meta"><b>${p._clName}</b><i class="sep"/><span>${typeLabel(p.postType)}</span>
+            ${p.postDate && html`<i class="sep"/><span>post ${fdate(p.postDate)}</span>`}
+            ${dl && html`<i class="sep"/><span style=${{ color: late ? 'var(--bad)' : null, fontWeight: late ? 600 : null }}>prazo ${fdate(dl)}</span>`}
+            ${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido</${Pill}>`}</div>
         </div>
-        <div class="row" style=${{ gap: 4 }}>
-          ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="xs" v="good" on=${() => stepPost(p._clId, p.id, 1).then(() => toast('Avançou para ' + st[i + 1] + '.'))}>✓ → ${st[i + 1].replace(' (Cliente)', ' (cliente)')}</${Btn}>`}
-          ${p.stage === 'Postagem' && html`<${Btn} sz="xs" v="pri" on=${() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.'))}>✓ Postado</${Btn}>`}
+        <div class="row" style=${{ gap: 8 }}>
+          <${StagePill} p=${p}/>
+          ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="sm" v="good" icon="check" on=${() => stepPost(p._clId, p.id, 1).then(() => toast('Avançou para ' + st[i + 1] + '.'))} title=${'Concluir e mandar para ' + st[i + 1]}>${st[i + 1].replace(' (Cliente)', ' do cliente').replace('Aprovação de Roteiro', 'Aprovação')}</${Btn}>`}
+          ${p.stage === 'Postagem' && html`<${Btn} sz="sm" v="pri" icon="check" on=${() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.'))}>Postado</${Btn}>`}
         </div></div>`; }
     const m = x.m;
-    return html`<div class="lrow" style=${{ alignItems: 'flex-start', borderLeft: '3px solid ' + (x.date && x.date < t ? 'var(--bad)' : 'var(--s1)') }}>
-      <input type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)} style=${{ width: 18, height: 18, accentColor: 'var(--good)', marginTop: 2 }}/>
-      <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => setEdit(m)}><div class="main-t">${m.title}</div>${m.notes && html`<div class="xs muted" style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</div>`}<div class="xs faint">Manual${m.deadline ? ' · prazo ' + fdate(m.deadline) : ''}</div></div>
+    return html`<div class="lrow">
+      <span class="status-bar" style=${{ background: late ? 'var(--bad)' : 'var(--border-strong)' }}/>
+      <input class="ck" type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)}/>
+      <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => setEdit(m)}><div class="main-t">${m.title}</div>
+        <div class="meta"><span>Pendência manual</span>${m.deadline && html`<i class="sep"/><span style=${{ color: late ? 'var(--bad)' : null, fontWeight: late ? 600 : null }}>prazo ${fdate(m.deadline)}</span>`}${m.notes && html`<i class="sep"/><span class="ellipsis" style=${{ maxWidth: 380 }}>${m.notes}</span>`}</div></div>
     </div>`;
   };
+  const countOf = c => act.filter(p => !isClientStage(p.stage) && p.stage !== 'Aprovação Final (Cliente)' && stageResp(p) === c.id).length + man.filter(m => m.assigned === c.id && !m.done).length;
+  const role = { consultora: 'Criação e roteiros', leonardo: 'Gravação, edição e tráfego', designer: 'Artes' };
 
   return html`<div>
-    ${parseD(t).getDate() === 15 && !d15 && html`<div class="callout warn mb12 row wrap"><div style=${{ flex: 1 }}><b class="t">📅 Hoje é dia 15: começa a criação de conteúdo</b>${colabName(cs, 'consultora')} tem até o dia 25 para criar todos os roteiros e cronogramas do mês seguinte. Todos os clientes precisam ter os posts planejados.</div><${Btn} sz="sm" on=${ok15}>✓ Ciente</${Btn}></div>`}
-    ${rejected.length > 0 && html`<div class="card flush mb12" style=${{ borderColor: 'var(--bad)' }}>
-      <div class="lgroup" style=${{ color: 'var(--bad)' }}><span>❌ ${rejected.length} post${rejected.length > 1 ? 's' : ''} com ajuste pedido pelo cliente (voltou para Criação)</span></div>
-      ${rejected.map(p => html`<div class="lrow" key=${p.id} style=${{ flexWrap: 'wrap' }}><div style=${{ flex: '1 1 240px', cursor: 'pointer' }} onClick=${() => setPeek(p)}><div class="main-t">${p._clName} — ${p.theme}</div>${p.rejectionNote && html`<div class="xs" style=${{ color: 'var(--bad)' }}>Motivo: "${p.rejectionNote}"</div>`}</div>
-        <${Btn} sz="xs" on=${() => setPeek(p)}>Editar legenda</${Btn}><${Btn} sz="xs" v="good" on=${() => patchPost(p._clId, p.id, { rejected: false }).then(() => toast('Resolvido.'))}>✓ Resolvido</${Btn}></div>`)}
-    </div>`}
+    ${parseD(t).getDate() === 15 && !d15 && html`<div class="callout warn mb12"><${Icon} n="cal" s=${18}/><div style=${{ flex: 1 }}><b class="t">Hoje é dia 15: começa a criação de conteúdo</b>${colabName(cs, 'consultora')} tem até o dia 25 para criar todos os roteiros e cronogramas do mês seguinte. Todos os clientes precisam ter os posts planejados.</div><${Btn} sz="sm" on=${ok15}>Ciente</${Btn}></div>`}
 
-    <div class="row wrap mb12" style=${{ gap: 8 }}>
-      ${cs.map(c => { const n = act.filter(p => !isClientStage(p.stage) && p.stage !== 'Aprovação Final (Cliente)' && stageResp(p) === c.id).length + man.filter(m => m.assigned === c.id && !m.done).length;
-        return html`<button key=${c.id} class=${'btn ' + (who === c.id ? 'pri' : '')} onClick=${() => setWho(c.id)}>${c.name} <span class="tag" style=${{ marginLeft: 4 }}>${n}</span></button>`; })}
+    <div class="row wrap mb16" style=${{ gap: 10 }}>
+      <div class="people">${cs.map(c => html`<button key=${c.id} class=${'person' + (who === c.id ? ' on' : '')} onClick=${() => setWho(c.id)}>
+        <${Avatar} name=${c.name} size=${32}/><span style=${{ textAlign: 'left' }}>${c.name}<small>${role[c.id] || 'Equipe'}</small></span><span class="tag" style=${{ marginLeft: 4 }}>${countOf(c)}</span></button>`)}</div>
       <span style=${{ flex: 1 }}/>
       <${Btn} v="pri" icon="plus" on=${() => setEdit({ assigned: who })}>Pendência manual</${Btn}>
     </div>
 
-    ${who === 'leonardo' && (dow === 1 || dow === 3 || dow === 5) && html`<div class="card flush mb12">
-      <div class="lgroup"><span>🔁 Rotina de hoje</span></div>
-      <div class="lrow"><input type="checkbox" checked=${bol} disabled=${bol} onChange=${okBol} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/><div style=${{ flex: 1 }}><div class=${bol ? 'faint' : 'main-t'} style=${{ textDecoration: bol ? 'line-through' : null }}>💳 Gerar boletos para os clientes</div><div class="xs faint">Toda segunda, quarta e sexta · veja a página Cobranças</div></div><${Btn} sz="xs" v="ghost" on=${() => nav.go('cobrancas')}>Abrir Cobranças</${Btn}></div>
-      ${dow === 1 && html`<div class="lrow"><input type="checkbox" checked=${rel} disabled=${rel} onChange=${okRel} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/><div style=${{ flex: 1 }}><div class=${rel ? 'faint' : 'main-t'} style=${{ textDecoration: rel ? 'line-through' : null }}>📊 Alimentar os relatórios das campanhas</div><div class="xs faint">Toda segunda-feira · Painel semanal</div></div><${Btn} sz="xs" v="ghost" on=${() => nav.go('performance')}>Abrir Painel semanal</${Btn}></div>`}
+    <div class="grid g4 mb16">
+      <${Kpi} l="Atrasadas" v=${lateCount} s=${colabName(cs, who)} tone=${lateCount ? 'bad' : ''}/>
+      <${Kpi} l="Para esta semana" v=${weekCount} s="prazo até domingo"/>
+      <${Kpi} l="Aguardando clientes" v=${waitingClient.length} s="aprovações e materiais"/>
+      <${Kpi} l="Ajustes pedidos" v=${rejected.length} s="voltaram para Criação" tone=${rejected.length ? 'warn' : ''}/>
+    </div>
+
+    ${rejected.length > 0 && html`<div class="card flush mb16">
+      <div class="lgroup"><span class="row" style=${{ gap: 8 }}><span class="dot" style=${{ background: 'var(--bad)' }}/>Ajustes pedidos pelos clientes</span><span>${rejected.length}</span></div>
+      ${rejected.map(p => html`<div class="lrow" key=${p.id} style=${{ flexWrap: 'wrap' }}><div style=${{ flex: '1 1 240px', minWidth: 0, cursor: 'pointer' }} onClick=${() => setPeek(p)}><div class="main-t">${p.theme}</div><div class="meta"><b>${p._clName}</b>${p.rejectionNote && html`<i class="sep"/><span style=${{ color: 'var(--bad)' }}>"${p.rejectionNote}"</span>`}</div></div>
+        <${Btn} sz="sm" icon="edit" on=${() => setPeek(p)}>Editar legenda</${Btn}><${Btn} sz="sm" v="good" icon="check" on=${() => patchPost(p._clId, p.id, { rejected: false }).then(() => toast('Resolvido.'))}>Resolvido</${Btn}></div>`)}
     </div>`}
 
-    <div class="row wrap mb12"><${Seg} v=${sub} on=${setSub} opts=${[{ v: 'tudo', l: '⚡ ' + colabName(cs, who) + ' (' + items.length + ')' }, { v: 'manual', l: '✍️ Manuais' }, { v: 'cliente', l: '👤 Aguardando cliente (' + waitingClient.length + ')' }]}/>
-      ${sub === 'tudo' && lateCount > 0 && html`<b class="small" style=${{ color: 'var(--bad)' }}>⚠ ${lateCount} atrasada${lateCount > 1 ? 's' : ''}</b>`}</div>
+    ${who === 'leonardo' && (dow === 1 || dow === 3 || dow === 5) && html`<div class="card flush mb16">
+      <div class="lgroup"><span class="row" style=${{ gap: 8 }}><${Icon} n="repeat" s=${15}/>Rotina de hoje</span></div>
+      <div class="lrow"><input class="ck" type="checkbox" checked=${bol} disabled=${bol} onChange=${okBol}/><div style=${{ flex: 1 }}><div class=${bol ? 'faint' : 'main-t'} style=${{ textDecoration: bol ? 'line-through' : null }}>Gerar boletos para os clientes</div><div class="meta">Toda segunda, quarta e sexta</div></div><${Btn} sz="sm" v="ghost" icon="arrow" on=${() => nav.go('cobrancas')}>Cobranças</${Btn}></div>
+      ${dow === 1 && html`<div class="lrow"><input class="ck" type="checkbox" checked=${rel} disabled=${rel} onChange=${okRel}/><div style=${{ flex: 1 }}><div class=${rel ? 'faint' : 'main-t'} style=${{ textDecoration: rel ? 'line-through' : null }}>Alimentar os relatórios das campanhas</div><div class="meta">Toda segunda-feira</div></div><${Btn} sz="sm" v="ghost" icon="arrow" on=${() => nav.go('performance')}>Painel semanal</${Btn}></div>`}
+    </div>`}
+
+    <div class="row wrap mb12"><${Seg} v=${sub} on=${setSub} opts=${[{ v: 'tudo', l: 'Fila de ' + colabName(cs, who), n: items.length }, { v: 'manual', l: 'Manuais', n: myMan.filter(m => !m.done).length }, { v: 'cliente', l: 'Aguardando cliente', n: waitingClient.length }]}/></div>
 
     ${sub === 'tudo' && ((loading && !posts.length) || loadingMan ? html`<div class="card"><${Empty} t="Carregando pendências…" s=""/></div>`
-      : !items.length ? html`<div class="card"><${Empty} t="Sem pendências 🎉" s="Os posts entram aqui sozinhos quando chegam numa etapa desta pessoa."/></div>`
-      : ORDER.filter(b => items.some(x => bucket(x.date) === b)).map(b => { const inB = items.filter(x => bucket(x.date) === b); const days = [...new Set(inB.map(x => x.date))];
-        return html`<div class="card flush mb12" key=${b}>
-          <div class="lgroup" style=${{ color: b.includes('Atrasado') ? 'var(--bad)' : b.includes('Esta') ? 'var(--warn)' : null }}><span>${b}</span><span>${inB.length}</span></div>
-          ${days.map(d => html`<div key=${d || 'x'}><div class="xs b faint" style=${{ padding: '8px 14px 2px' }}>${dayLbl(d)}</div>${inB.filter(x => x.date === d).map(x => html`<${Item} key=${x.k} x=${x}/>`)}</div>`)}
+      : !items.length ? html`<div class="card"><${Empty} t="Tudo em dia" s="Os posts entram aqui sozinhos quando chegam numa etapa desta pessoa."/></div>`
+      : BUCKETS.filter(b => items.some(x => bucket(x.date) === b.k)).map(b => { const inB = items.filter(x => bucket(x.date) === b.k); const days = [...new Set(inB.map(x => x.date))];
+        return html`<div class="card flush mb12" key=${b.k}>
+          <div class="lgroup"><span class="row" style=${{ gap: 8, color: b.k === 'late' ? 'var(--bad)' : null }}><span class="dot" style=${{ background: b.c }}/>${b.l}</span><span>${inB.length}</span></div>
+          ${days.map(d => html`<div key=${d || 'x'}>${b.k !== 'none' && html`<div class="subday">${dayLbl(d)}</div>`}${inB.filter(x => x.date === d).map(x => html`<${Item} key=${x.k} x=${x}/>`)}</div>`)}
         </div>`; }))}
 
     ${sub === 'manual' && html`<div class="card flush">
       ${myMan.slice().sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : (a.deadline || '9999').localeCompare(b.deadline || '9999'))).map(m => { const over = !m.done && m.deadline && m.deadline < t; const urg = !m.done && m.deadline && !over && m.deadline <= addDays(t, 1);
-        return html`<div class="lrow" key=${m.id} style=${{ opacity: m.done ? 0.55 : 1, borderLeft: '3px solid ' + (m.done ? 'var(--good)' : over ? 'var(--bad)' : urg ? 'var(--warn)' : 'var(--s1)') }}>
-          <input type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/>
-          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t" style=${{ textDecoration: m.done ? 'line-through' : null }}>${m.title} ${over && html`<${Tag} t="bad">⚠ atrasada</${Tag}>`}${urg && html`<${Tag} t="warn">🔥 urgente</${Tag}>`}</div>
-            ${m.notes && html`<div class="xs muted" style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</div>`}${m.deadline && html`<div class="xs faint">📅 ${fdate(m.deadline)}</div>`}</div>
+        return html`<div class="lrow" key=${m.id} style=${{ opacity: m.done ? 0.55 : 1 }}>
+          <span class="status-bar" style=${{ background: m.done ? 'var(--good)' : over ? 'var(--bad)' : urg ? 'var(--warn)' : 'var(--border-strong)' }}/>
+          <input class="ck" type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)}/>
+          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t" style=${{ textDecoration: m.done ? 'line-through' : null }}>${m.title}</div>
+            <div class="meta">${m.deadline ? html`<span>prazo ${fdate(m.deadline)}</span>` : html`<span>sem prazo</span>`}${m.notes && html`<i class="sep"/><span style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</span>`}</div></div>
+          ${over && html`<${Pill} c="var(--bad)">Atrasada</${Pill}>`}${urg && html`<${Pill} c="var(--warn)">Urgente</${Pill}>`}
           <${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/><${Btn} sz="xs" v="ghost" cls="danger" icon="trash" on=${() => del(m)}/>
         </div>`; })}
       ${!myMan.length && html`<${Empty} t="Nenhuma pendência manual para esta pessoa" s=""/>`}
@@ -2712,7 +2878,7 @@ function IntReunioes({ internal }) {
         <div class="lrow" style=${{ cursor: 'pointer', borderBottom: 0 }} onClick=${() => setOpen(open === x.id ? null : x.id)}>
           <${Tag} t=${x.type === 'cliente' ? 'warn' : x.type === 'parceiro' ? '' : 'pri'}>${x.type || 'interna'}</${Tag}>
           <b>${x.date ? fdate(x.date) : '—'}</b>
-          <div style=${{ flex: 1, minWidth: 0 }} class="small"><span class="b">${x.title || (x.clientId && (clients.find(c => c.id === x.clientId) || {}).name) || ''}</span> <span class="muted">${x.participants || ''}</span>${x.transcript && html` <${Tag}>📝 transcrição</${Tag}>`}</div>
+          <div style=${{ flex: 1, minWidth: 0 }} class="small"><span class="b">${x.title || (x.clientId && (clients.find(c => c.id === x.clientId) || {}).name) || ''}</span> <span class="muted">${x.participants || ''}</span>${x.transcript && html` <${Pill} c="var(--s7)">Transcrição</${Pill}>`}</div>
           <${Btn} sz="xs" v="ghost" icon="edit" on=${e => { e.stopPropagation(); setEdit(x); }}/>
           <span class="xs faint">${open === x.id ? '▲' : '▼'}</span>
         </div>
@@ -2782,7 +2948,7 @@ function AcForm({ x, onClose, onSave, onDel }) {
 /* ---------- membros ---------- */
 function IntMembros({ cs }) {
   const [name, setName] = useState('');
-  const FIXED = ['consultora', 'leonardo', 'designer'];
+  const FIXED = ['consultora', 'leonardo', ''];
   const save = list => saveInternal('colabs', list);
   const ren = (c, n) => n && n !== c.name && save(cs.map(x => (x.id === c.id ? { ...x, name: n } : x)));
   return html`<div>
@@ -2799,7 +2965,7 @@ function IntMembros({ cs }) {
 }
 
 /* ---------- Instagram (no espaço do cliente) ---------- */
-const INS_FIELDS = [['alcance', 'Alcance total', '👁'], ['impressoes', 'Impressões', '📊'], ['seguidores', 'Seguidores', '👥'], ['segNovos', 'Novos seguidores', '📈'], ['curtidas', 'Curtidas', '❤️'], ['comentarios', 'Comentários', '💬'], ['salvamentos', 'Salvamentos', '🔖'], ['visitas', 'Visitas ao perfil', '🔍'], ['cliquesLink', 'Cliques no link', '🔗']];
+const INS_FIELDS = [['alcance', 'Alcance total', ''], ['impressoes', 'Impressões', ''], ['seguidores', 'Seguidores', ''], ['segNovos', 'Novos seguidores', ''], ['curtidas', 'Curtidas', ''], ['comentarios', 'Comentários', ''], ['salvamentos', 'Salvamentos', ''], ['visitas', 'Visitas ao perfil', ''], ['cliquesLink', 'Cliques no link', '']];
 function WsInstagram({ cl }) {
   const [internal, , loading] = useDoc(V6('internal'), {});
   const all = asArr((internal || {}).insights);
@@ -2813,8 +2979,8 @@ function WsInstagram({ cl }) {
       return html`<div class="card mb12" key=${x.id}>
         <div class="card-h"><h3>${/^\d{4}-\d{2}$/.test(x.month || '') ? monthLabel(x.month) : x.month}</h3><div class="row"><${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(x)}/></div></div>
         <div class="grid g3">${INS_FIELDS.map(([k2, l, ic]) => { const v = Number(x[k2] || 0); const pv = prev ? Number(prev[k2] || 0) : 0; const d = prev && pv ? (v - pv) / pv : null;
-          return html`<div key=${k2} class="card tight" style=${{ background: 'var(--surface-2)' }}><div class="xs faint">${ic} ${l}</div><div class="b num" style=${{ fontSize: 18 }}>${v.toLocaleString('pt-BR')}</div>${d !== null && html`<div class="xs" style=${{ color: d >= 0 ? 'var(--good)' : 'var(--bad)' }}>${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(0)}% vs mês anterior</div>`}</div>`; })}</div>
-        ${x.melhorPost && html`<div class="callout good mt12"><b class="t">🏆 Melhor publicação</b>${x.melhorPost}${Number(x.melhorPostAlcance) > 0 ? ' · alcance ' + Number(x.melhorPostAlcance).toLocaleString('pt-BR') : ''}</div>`}
+          return html`<div key=${k2} class="card tight" style=${{ background: 'var(--surface-2)' }}><div class="xs faint">${l}</div><div class="b num" style=${{ fontSize: 18 }}>${v.toLocaleString('pt-BR')}</div>${d !== null && html`<div class="xs" style=${{ color: d >= 0 ? 'var(--good)' : 'var(--bad)' }}>${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(0)}% vs mês anterior</div>`}</div>`; })}</div>
+        ${x.melhorPost && html`<div class="callout good mt12"><b class="t">Melhor publicação</b>${x.melhorPost}${Number(x.melhorPostAlcance) > 0 ? ' · alcance ' + Number(x.melhorPostAlcance).toLocaleString('pt-BR') : ''}</div>`}
         ${x.notes && html`<div class="small muted mt8" style=${{ fontStyle: 'italic' }}>${x.notes}</div>`}
       </div>`; })}
     ${!list.length && html`<div class="card"><${Empty} t="Nenhum mês registrado" s="Registre alcance, seguidores e engajamento do mês."/></div>`}

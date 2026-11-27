@@ -38,6 +38,20 @@ const ICONS = {
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9',
   external: 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14 21 3',
   pause: 'M6 4h4v16H6zM14 4h4v16h-4z', play: 'M5 3l14 9-14 9z',
+  film: 'M4 4h16v16H4zM8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4',
+  map: 'M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4zM8 2v16M16 6v16',
+  key: 'M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4',
+  camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  checksq: 'M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11',
+  grid: 'M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',
+  image: 'M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM8.5 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zM21 15l-5-5L5 21',
+  archive: 'M21 8v13H3V8M1 3h22v5H1zM10 12h4',
+  folder: 'M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z',
+  eye: 'M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  eyeoff: 'M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22',
+  mic: 'M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8',
+  trophy: 'M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3',
+  arrow: 'M5 12h14M12 5l7 7-7 7',
   star: 'M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z'
 };
 function Icon({ n, s = 18, w = 2, style }) {
@@ -72,7 +86,15 @@ function Textarea({ label, hint, v, on, ph, rows, cls }) {
   return html`<${Field} label=${label} hint=${hint} cls=${cls}><textarea class="inp" rows=${rows || 3} value=${v ?? ''} placeholder=${ph} onChange=${e => on(e.target.value)}/></${Field}>`;
 }
 function Seg({ v, on, opts }) {
-  return html`<div class="seg">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.l}</button>`)}</div>`;
+  return html`<div class="seg">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.icon && html`<${Icon} n=${o.icon} s=${14}/>`}${o.l}${o.n != null && html`<span class="cnt">${o.n}</span>`}</button>`)}</div>`;
+}
+/* abas de página (linha embaixo da aba ativa) */
+function Tabs({ v, on, opts }) {
+  return html`<div class="tabs">${opts.map(o => html`<button key=${o.v} class=${v === o.v ? 'on' : ''} onClick=${() => on(o.v)}>${o.icon && html`<${Icon} n=${o.icon} s=${16}/>`}<span>${o.l}</span>${o.n != null && o.n !== '' && html`<span class=${'cnt' + (o.hot ? ' hot' : '')}>${o.n}</span>`}</button>`)}</div>`;
+}
+/* etapa / status como pílula com ponto colorido */
+function Pill({ c, children, title }) {
+  return html`<span class="pill" title=${title} style=${{ '--pc': c || 'var(--text-3)' }}><i/>${children}</span>`;
 }
 function Chips({ v, on, opts, multi }) {
   const isOn = x => (multi ? (v || []).includes(x) : v === x);

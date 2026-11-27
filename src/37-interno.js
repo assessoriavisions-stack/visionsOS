@@ -6,10 +6,12 @@
    vos6_c<id>_posts e os lembretes vos6_day15_/boletos_/relcamp_.
    ============================================================ */
 const INT_TABS = [
-  { v: 'pendencias', l: '⚡ Pendências' }, { v: 'overview', l: '📆 Overview semanal' }, { v: 'cronograma', l: '📅 Cronograma' },
-  { v: 'reunioes', l: '📋 Reuniões' }, { v: 'acessos', l: '🔑 Acessos' }, { v: 'membros', l: '👥 Membros' }
+  { v: 'pendencias', l: 'Pendências', icon: 'zap' }, { v: 'overview', l: 'Overview semanal', icon: 'grid' }, { v: 'cronograma', l: 'Cronograma', icon: 'cal' },
+  { v: 'reunioes', l: 'Reuniões', icon: 'mic' }, { v: 'acessos', l: 'Acessos', icon: 'key' }, { v: 'membros', l: 'Membros', icon: 'users' }
 ];
 const activePost = p => p && !p.archived && p.stage !== 'Arquivado';
+const StagePill = ({ p }) => html`<${Pill} c=${stageColor(p.stage)}>${p.stage}</${Pill}>`;
+const DateBox = ({ d, late }) => (d ? html`<div class=${'datebox' + (late ? ' late' : '')}><b>${parseD(d).getDate()}</b><span>${MSHORT[parseD(d).getMonth()]}</span></div>` : html`<div class="datebox"><b>–</b><span>s/data</span></div>`);
 const typeLabel = t => (POST_TYPES.find(x => x.v === t) || {}).l || t || '';
 const stageResp = p => STAGE_RESP[p.stage] || p.responsible || '';
 const weekStart = d => { const dt = parseD(d); const dow = dt.getDay(); return addDays(d, dow === 0 ? -6 : 1 - dow); };
@@ -59,7 +61,7 @@ function InternoPage({ nav }) {
   const P = { pendencias: IntPendencias, overview: IntOverview, cronograma: IntCronograma, reunioes: IntReunioes, acessos: IntAcessos, membros: IntMembros }[tab];
   return html`<div>
     <div class="page-h"><div><h1>Interno</h1><p class="sub">Gestão operacional da agência: pendências de cada pessoa, posts da semana, reuniões e acessos.</p></div></div>
-    <div class="seg mb16" style=${{ display: 'flex', overflowX: 'auto' }}>${tabs.map(t => html`<button key=${t.v} class=${tab === t.v ? 'on' : ''} onClick=${() => setTab(t.v)}>${t.l}</button>`)}</div>
+    <${Tabs} v=${tab} on=${setTab} opts=${tabs}/>
     <${P} nav=${nav} cs=${cs} internal=${internal || {}}/>
   </div>`;
 }
@@ -71,42 +73,47 @@ function PostPeek({ p, cs, nav, onClose }) {
   const run = async fn => { setBusy(true); try { await fn(); } finally { setBusy(false); } onClose(); };
   const dl = postDeadline(p);
   return html`<${Modal} title=${p.theme || '(sem tema)'} onClose=${onClose} footer=${html`
-      <${Btn} v="ghost" on=${() => { onClose(); nav.client(p._clId); }}>Abrir ${p._clName}</${Btn}><span style=${{ flex: 1 }}/>
-      ${i > 0 && html`<${Btn} icon="left" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, -1))}>Voltar</${Btn}>`}
-      ${i >= 0 && i < st.length - 1 && html`<${Btn} v="good" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, 1).then(() => toast('Post avançou para ' + st[i + 1] + '.')))}>→ ${st[i + 1]}</${Btn}>`}
-      ${p.stage === 'Postagem' && html`<${Btn} v="pri" disabled=${busy} on=${() => run(() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.')))}>✓ Marcar postado</${Btn}>`}`}>
-    <div class="row wrap mb12" style=${{ gap: 6 }}>
-      <${Tag} t="pri">${p._clName}</${Tag}><${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${typeLabel(p.postType)}</${Tag}>
-      <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-      ${postLate(p) && html`<${Tag} t="bad">⚠ etapa atrasada</${Tag}>`}
+      <${Btn} v="ghost" icon="external" on=${() => { onClose(); nav.client(p._clId); }}>Abrir ${p._clName}</${Btn}><span style=${{ flex: 1 }}/>
+      ${i > 0 && html`<${Btn} icon="left" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, -1))}>Voltar etapa</${Btn}>`}
+      ${i >= 0 && i < st.length - 1 && html`<${Btn} v="pri" icon="arrow" disabled=${busy} on=${() => run(() => stepPost(p._clId, p.id, 1).then(() => toast('Post avançou para ' + st[i + 1] + '.')))}>${st[i + 1]}</${Btn}>`}
+      ${p.stage === 'Postagem' && html`<${Btn} v="pri" icon="check" disabled=${busy} on=${() => run(() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.')))}>Marcar como postado</${Btn}>`}`}>
+    <div class="row wrap mb12" style=${{ gap: 8 }}>
+      <${StagePill} p=${p}/>
+      <span class="meta" style=${{ marginTop: 0 }}><b>${p._clName}</b><i class="sep"/>${p.platform || 'Instagram'}<i class="sep"/>${typeLabel(p.postType)}</span>
+      ${postLate(p) && html`<${Pill} c="var(--bad)">Etapa atrasada</${Pill}>`}
     </div>
-    <div class="grid g3 mb12 small">
-      <div><div class="xs faint">Data do post</div><b>${p.postDate ? fdate(p.postDate) : '—'}</b></div>
-      <div><div class="xs faint">Prazo da etapa</div><b style=${{ color: postLate(p) ? 'var(--bad)' : null }}>${dl ? fdate(dl) : '—'}</b></div>
-      <div><div class="xs faint">Responsável</div><b>${isClientStage(p.stage) ? 'Cliente' : colabName(cs, stageResp(p))}</b></div>
-      <div><div class="xs faint">Captação</div><b>${p.captacao === 'cliente' ? 'Cliente' : 'Agência'}</b></div>
+    ${i >= 0 && html`<div class="row mb12" style=${{ gap: 4 }}>${st.map((s, k) => html`<span key=${k} title=${s} style=${{ height: 5, flex: 1, borderRadius: 5, background: k <= i ? stageColor(p.stage) : 'var(--surface-3)' }}/>`)}</div>`}
+    <div class="kv mb12">
+      <div><span>Data do post</span><b>${p.postDate ? fdate(p.postDate) : '—'}</b></div>
+      <div><span>Prazo da etapa</span><b style=${{ color: postLate(p) ? 'var(--bad)' : null }}>${dl ? fdate(dl) : '—'}</b></div>
+      <div><span>Responsável</span><b>${isClientStage(p.stage) ? 'Cliente' : colabName(cs, stageResp(p))}</b></div>
+      <div><span>Captação</span><b>${p.captacao === 'cliente' ? 'Cliente' : 'Agência'}</b></div>
     </div>
-    ${p.rejected && html`<div class="callout bad mb12"><b class="t">Cliente pediu ajuste</b>${p.rejectionNote || 'Sem observação.'}</div>`}
+    ${p.rejected && html`<div class="callout bad mb12"><${Icon} n="alert" s=${18}/><div><b class="t">Cliente pediu ajuste</b>${p.rejectionNote || 'Sem observação.'}</div></div>`}
     <${Textarea} label="Roteiro / legenda" v=${cap} on=${setCap} rows=${6}/>
     <div class="row wrap mt8">
       ${cap !== (p.caption || '') && html`<${Btn} sz="sm" v="pri" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap }).then(() => toast('Legenda salva.')))}>Salvar legenda</${Btn}>`}
-      ${p.rejected && html`<${Btn} sz="sm" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap, rejected: false }).then(() => toast('Ajuste marcado como resolvido.')))}>✓ Ajuste resolvido</${Btn}>`}
-      ${p.driveLink && html`<${Btn} sz="sm" icon="external" href=${p.driveLink}>Drive</${Btn}>`}${p.artLink && html`<${Btn} sz="sm" icon="external" href=${p.artLink}>Arte</${Btn}>`}
+      ${p.rejected && html`<${Btn} sz="sm" icon="check" on=${() => run(() => patchPost(p._clId, p.id, { caption: cap, rejected: false }).then(() => toast('Ajuste marcado como resolvido.')))}>Ajuste resolvido</${Btn}>`}
+      ${p.driveLink && html`<${Btn} sz="sm" icon="folder" href=${p.driveLink}>Drive</${Btn}>`}${p.artLink && html`<${Btn} sz="sm" icon="image" href=${p.artLink}>Arte</${Btn}>`}
     </div>
   </${Modal}>`;
 }
-function PostChip({ p, cs, showClient, late, onClick }) {
-  return html`<div class="lrow" style=${{ cursor: 'pointer', alignItems: 'flex-start', borderLeft: '3px solid ' + (late ? 'var(--bad)' : stageColor(p.stage)) }} onClick=${onClick}>
+function PostChip({ p, cs, showClient, late, onClick, noDate }) {
+  const resp = !isClientStage(p.stage) && p.stage !== 'Arquivado' && stageResp(p);
+  return html`<div class="lrow" style=${{ cursor: 'pointer' }} onClick=${onClick}>
+    ${!noDate && html`<${DateBox} d=${p.postDate} late=${late}/>`}
     <div style=${{ flex: 1, minWidth: 0 }}>
-      <div class="main-t" style=${{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>${p.theme || '(sem tema)'}</div>
-      <div class="row wrap" style=${{ gap: 6, marginTop: 4 }}>
-        ${showClient && html`<b class="xs">${p._clName}</b>`}
-        <${Tag}>${p.platform || 'Instagram'}</${Tag}><${Tag}>${typeLabel(p.postType)}</${Tag}>
-        <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-        ${p.postDate && html`<span class="xs faint">📅 ${fdate(p.postDate)}</span>`}
-        ${!isClientStage(p.stage) && stageResp(p) && p.stage !== 'Arquivado' && html`<span class="xs faint">· ${colabName(cs, stageResp(p))}</span>`}
-        ${late && html`<${Tag} t="bad">⚠ atrasado</${Tag}>`}${p.rejected && html`<${Tag} t="bad">ajuste pedido</${Tag}>`}
+      <div class="main-t ellipsis">${p.theme || '(sem tema)'}</div>
+      <div class="meta">
+        ${showClient && html`<b>${p._clName}</b><i class="sep"/>`}
+        <span>${typeLabel(p.postType)}</span><i class="sep"/><span>${p.platform || 'Instagram'}</span>
+        ${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido</${Pill}>`}
       </div>
+    </div>
+    <div class="row hide-sm" style=${{ gap: 10 }}>
+      ${late && html`<${Pill} c="var(--bad)">Atrasado</${Pill}>`}
+      <${StagePill} p=${p}/>
+      ${resp ? html`<span title=${colabName(cs, resp)}><${Avatar} name=${colabName(cs, resp)} size=${24}/></span>` : html`<span style=${{ width: 24 }}/>`}
     </div>
   </div>`;
 }
@@ -130,21 +137,22 @@ function IntOverview({ cs, nav }) {
   return html`<div>
     <div class="card mb12"><div class="row wrap" style=${{ gap: 10 }}>
       <${Seg} v=${group} on=${setGroup} opts=${[{ v: 'semana', l: 'Por semana' }, { v: 'mes', l: 'Por mês' }]}/>
-      <div class="row" style=${{ gap: 4 }}><${Btn} sz="sm" icon="left" on=${() => shift(-1)}/><input class="inp sm" type="date" value=${date} onChange=${e => e.target.value && setDate(e.target.value)} style=${{ width: 150 }}/><${Btn} sz="sm" on=${() => shift(1)}>›</${Btn}><${Btn} sz="sm" v="ghost" on=${() => setDate(today())}>Hoje</${Btn}></div>
-      <b class="small">${label}</b>
+      <div class="month-nav"><${Btn} sz="xs" v="ghost" icon="left" on=${() => shift(-1)}/><b>${label}</b><${Btn} sz="xs" v="ghost" icon="right" on=${() => shift(1)}/></div>
+      <input class="inp sm" type="date" value=${date} onChange=${e => e.target.value && setDate(e.target.value)} style=${{ width: 150 }}/><${Btn} sz="sm" v="ghost" on=${() => setDate(today())}>Hoje</${Btn}>
       <span style=${{ flex: 1 }}/>
       <select class="inp sm" style=${{ width: 200 }} value=${cli} onChange=${e => setCli(e.target.value)}><option value="">Todos os clientes</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}</select>
     </div>
     <div class="row wrap mt12" style=${{ gap: 10 }}>
       <${Seg} v=${type} on=${setType} opts=${[{ v: '', l: 'Todos' }].concat(POST_TYPES)}/>
-      <${Seg} v=${by} on=${setBy} opts=${[{ v: 'cliente', l: '👤 Por cliente' }, { v: 'dia', l: '📅 Por dia' }]}/>
-      <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''}${late ? html` · <b style=${{ color: 'var(--bad)' }}>⚠ ${late} atrasado${late > 1 ? 's' : ''}</b>` : ''}</span>
+      <${Seg} v=${by} on=${setBy} opts=${[{ v: 'cliente', l: 'Por cliente', icon: 'users' }, { v: 'dia', l: 'Por dia', icon: 'cal' }]}/>
+      <span style=${{ flex: 1 }}/>
+      <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''}</span>${late > 0 && html`<${Pill} c="var(--bad)">${late} atrasado${late > 1 ? 's' : ''}</${Pill}>`}
     </div></div>
     ${loading && !posts.length ? html`<div class="card"><${Empty} t="Carregando posts…" s=""/></div>`
       : !list.length ? html`<div class="card"><${Empty} t="Nenhum post neste período" s="Os posts aparecem aqui pela data de postagem."/></div>`
       : html`<div class=${by === 'cliente' ? 'grid g2' : ''}>${keys.map(k => html`<div class="card flush mb12" key=${k}>
           <div class="lgroup"><span>${by === 'dia' ? longDay(k) : k}</span><span>${groups[k].length}</span></div>
-          ${groups[k].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${by === 'dia'} late=${isLate(p)} onClick=${() => setPeek(p)}/>`)}
+          ${groups[k].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${by === 'dia'} late=${isLate(p)} noDate=${by === 'dia'} onClick=${() => setPeek(p)}/>`)}
         </div>`)}</div>`}
     ${peek && html`<${PostPeek} p=${peek} cs=${cs} nav=${nav} onClose=${() => setPeek(null)}/>`}
   </div>`;
@@ -159,7 +167,7 @@ function IntCronograma({ cs, nav }) {
   const days = Object.keys(byDay).sort();
   return html`<div>
     <div class="card mb12"><div class="row wrap" style=${{ gap: 10 }}>
-      <${Btn} sz="sm" icon="left" on=${() => setYm(addMonths(ym, -1))}/><b style=${{ minWidth: 140, textAlign: 'center' }}>${monthLabel(ym)}</b><${Btn} sz="sm" on=${() => setYm(addMonths(ym, 1))}>›</${Btn}>
+      <div class="month-nav"><${Btn} sz="xs" v="ghost" icon="left" on=${() => setYm(addMonths(ym, -1))}/><b>${monthLabel(ym)}</b><${Btn} sz="xs" v="ghost" icon="right" on=${() => setYm(addMonths(ym, 1))}/></div>
       <select class="inp sm" style=${{ width: 200 }} value=${cli} onChange=${e => setCli(e.target.value)}><option value="">Todos os clientes</option>${clients.map(c => html`<option key=${c.id} value=${c.id}>${c.name}</option>`)}</select>
       <span class="small muted">${list.length} post${list.length !== 1 ? 's' : ''} no mês</span>
     </div></div>
@@ -167,9 +175,9 @@ function IntCronograma({ cs, nav }) {
       : !days.length ? html`<div class="card"><${Empty} t="Nenhum post com data neste mês" s="Adicione posts no espaço de cada cliente com a data de postagem."/></div>`
       : days.map(d => { const dt = parseD(d); const we = dt.getDay() === 0 || dt.getDay() === 6;
         return html`<div class="row mb8" key=${d} style=${{ alignItems: 'flex-start', gap: 12 }}>
-          <div class="card tight" style=${{ width: 60, textAlign: 'center', padding: '6px 4px', flexShrink: 0, borderColor: we ? 'var(--warn)' : null }}>
-            <div class="xs faint">${['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'][dt.getDay()]}</div><div class="b" style=${{ fontSize: 20 }}>${dt.getDate()}</div></div>
-          <div class="card flush" style=${{ flex: 1, minWidth: 0 }}>${byDay[d].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${true} late=${postLate(p)} onClick=${() => setPeek(p)}/>`)}</div>
+          <div class=${'datebox' + (d === today() ? ' today' : '')} style=${{ width: 56, padding: '8px 0', background: we ? 'var(--surface-3)' : null }}>
+            <span>${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][dt.getDay()]}</span><b style=${{ fontSize: 20 }}>${dt.getDate()}</b></div>
+          <div class="card flush" style=${{ flex: 1, minWidth: 0 }}>${byDay[d].map(p => html`<${PostChip} key=${p.id} p=${p} cs=${cs} showClient=${true} noDate=${true} late=${postLate(p)} onClick=${() => setPeek(p)}/>`)}</div>
         </div>`; })}
     ${peek && html`<${PostPeek} p=${peek} cs=${cs} nav=${nav} onClose=${() => setPeek(null)}/>`}
   </div>`;
@@ -206,70 +214,87 @@ function IntPendencias({ cs, nav }) {
     .concat(myMan.filter(m => !m.done).map(m => ({ k: 'm' + m.id, type: 'man', date: m.deadline || '', m })))
     .sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
   const mon = weekStart(t), sun = addDays(mon, 6), nsun = addDays(mon, 13);
-  const bucket = d => (!d ? 'Sem data' : d < t ? '⚠️ Atrasado' : d <= sun ? '🔥 Esta semana' : d <= nsun ? '📅 Semana que vem' : '🗓 Futuro');
-  const ORDER = ['⚠️ Atrasado', '🔥 Esta semana', '📅 Semana que vem', '🗓 Futuro', 'Sem data'];
-  const dayLbl = d => (!d ? 'Sem data' : d === t ? '📌 Hoje — ' + fdate(d) : d === addDays(t, 1) ? '📌 Amanhã — ' + fdate(d) : longDay(d));
-  const lateCount = items.filter(x => x.date && x.date < t).length;
+  const BUCKETS = [{ k: 'late', l: 'Atrasado', c: 'var(--bad)' }, { k: 'week', l: 'Esta semana', c: 'var(--warn)' }, { k: 'next', l: 'Semana que vem', c: 'var(--s1)' }, { k: 'later', l: 'Mais pra frente', c: 'var(--text-3)' }, { k: 'none', l: 'Sem data', c: 'var(--text-3)' }];
+  const bucket = d => (!d ? 'none' : d < t ? 'late' : d <= sun ? 'week' : d <= nsun ? 'next' : 'later');
+  const dayLbl = d => (!d ? 'Sem data' : d === t ? 'Hoje · ' + fdate(d) : d === addDays(t, 1) ? 'Amanhã · ' + fdate(d) : longDay(d));
+  const lateCount = items.filter(x => bucket(x.date) === 'late').length;
+  const weekCount = items.filter(x => bucket(x.date) === 'week').length;
 
   const Item = ({ x }) => {
-    if (x.type === 'post') { const p = x.p; const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage);
-      return html`<div class="lrow" style=${{ alignItems: 'flex-start', flexWrap: 'wrap', borderLeft: '3px solid ' + (x.date && x.date < t ? 'var(--bad)' : stageColor(p.stage)) }}>
+    const late = bucket(x.date) === 'late';
+    if (x.type === 'post') { const p = x.p; const st = postStages(p.postType, p.captacao); const i = st.indexOf(p.stage); const dl = postDeadline(p);
+      return html`<div class="lrow" style=${{ flexWrap: 'wrap' }}>
+        <span class="status-bar" style=${{ background: late ? 'var(--bad)' : stageColor(p.stage) }}/>
         <div style=${{ flex: '1 1 260px', minWidth: 0, cursor: 'pointer' }} onClick=${() => setPeek(p)}>
           <div class="main-t">${p.theme || '(sem tema)'}</div>
-          <div class="row wrap" style=${{ gap: 6, marginTop: 4 }}><b class="xs">${p._clName}</b><${Tag}>${typeLabel(p.postType)}</${Tag}>
-            <${Tag} style=${{ color: stageColor(p.stage), background: 'var(--surface-3)', fontWeight: 700 }}>${p.stage}</${Tag}>
-            ${p.postDate && html`<span class="xs faint">📅 post ${fdate(p.postDate)}</span>`}${postDeadline(p) && html`<span class="xs" style=${{ color: postLate(p) ? 'var(--bad)' : 'var(--warn)', fontWeight: 600 }}>⏰ prazo ${fdate(postDeadline(p))}</span>`}
-            ${p.rejected && html`<${Tag} t="bad">ajuste pedido</${Tag}>`}</div>
+          <div class="meta"><b>${p._clName}</b><i class="sep"/><span>${typeLabel(p.postType)}</span>
+            ${p.postDate && html`<i class="sep"/><span>post ${fdate(p.postDate)}</span>`}
+            ${dl && html`<i class="sep"/><span style=${{ color: late ? 'var(--bad)' : null, fontWeight: late ? 600 : null }}>prazo ${fdate(dl)}</span>`}
+            ${p.rejected && html`<${Pill} c="var(--bad)">Ajuste pedido</${Pill}>`}</div>
         </div>
-        <div class="row" style=${{ gap: 4 }}>
-          ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="xs" v="good" on=${() => stepPost(p._clId, p.id, 1).then(() => toast('Avançou para ' + st[i + 1] + '.'))}>✓ → ${st[i + 1].replace(' (Cliente)', ' (cliente)')}</${Btn}>`}
-          ${p.stage === 'Postagem' && html`<${Btn} sz="xs" v="pri" on=${() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.'))}>✓ Postado</${Btn}>`}
+        <div class="row" style=${{ gap: 8 }}>
+          <${StagePill} p=${p}/>
+          ${i >= 0 && i < st.length - 1 && html`<${Btn} sz="sm" v="good" icon="check" on=${() => stepPost(p._clId, p.id, 1).then(() => toast('Avançou para ' + st[i + 1] + '.'))} title=${'Concluir e mandar para ' + st[i + 1]}>${st[i + 1].replace(' (Cliente)', ' do cliente').replace('Aprovação de Roteiro', 'Aprovação')}</${Btn}>`}
+          ${p.stage === 'Postagem' && html`<${Btn} sz="sm" v="pri" icon="check" on=${() => patchPost(p._clId, p.id, { archived: true, stage: 'Arquivado', stageDate: today() }).then(() => toast('Marcado como postado.'))}>Postado</${Btn}>`}
         </div></div>`; }
     const m = x.m;
-    return html`<div class="lrow" style=${{ alignItems: 'flex-start', borderLeft: '3px solid ' + (x.date && x.date < t ? 'var(--bad)' : 'var(--s1)') }}>
-      <input type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)} style=${{ width: 18, height: 18, accentColor: 'var(--good)', marginTop: 2 }}/>
-      <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => setEdit(m)}><div class="main-t">${m.title}</div>${m.notes && html`<div class="xs muted" style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</div>`}<div class="xs faint">Manual${m.deadline ? ' · prazo ' + fdate(m.deadline) : ''}</div></div>
+    return html`<div class="lrow">
+      <span class="status-bar" style=${{ background: late ? 'var(--bad)' : 'var(--border-strong)' }}/>
+      <input class="ck" type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)}/>
+      <div style=${{ flex: 1, minWidth: 0, cursor: 'pointer' }} onClick=${() => setEdit(m)}><div class="main-t">${m.title}</div>
+        <div class="meta"><span>Pendência manual</span>${m.deadline && html`<i class="sep"/><span style=${{ color: late ? 'var(--bad)' : null, fontWeight: late ? 600 : null }}>prazo ${fdate(m.deadline)}</span>`}${m.notes && html`<i class="sep"/><span class="ellipsis" style=${{ maxWidth: 380 }}>${m.notes}</span>`}</div></div>
     </div>`;
   };
+  const countOf = c => act.filter(p => !isClientStage(p.stage) && p.stage !== 'Aprovação Final (Cliente)' && stageResp(p) === c.id).length + man.filter(m => m.assigned === c.id && !m.done).length;
+  const role = { consultora: 'Criação e roteiros', leonardo: 'Gravação, edição e tráfego', designer: 'Artes' };
 
   return html`<div>
-    ${parseD(t).getDate() === 15 && !d15 && html`<div class="callout warn mb12 row wrap"><div style=${{ flex: 1 }}><b class="t">📅 Hoje é dia 15: começa a criação de conteúdo</b>${colabName(cs, 'consultora')} tem até o dia 25 para criar todos os roteiros e cronogramas do mês seguinte. Todos os clientes precisam ter os posts planejados.</div><${Btn} sz="sm" on=${ok15}>✓ Ciente</${Btn}></div>`}
-    ${rejected.length > 0 && html`<div class="card flush mb12" style=${{ borderColor: 'var(--bad)' }}>
-      <div class="lgroup" style=${{ color: 'var(--bad)' }}><span>❌ ${rejected.length} post${rejected.length > 1 ? 's' : ''} com ajuste pedido pelo cliente (voltou para Criação)</span></div>
-      ${rejected.map(p => html`<div class="lrow" key=${p.id} style=${{ flexWrap: 'wrap' }}><div style=${{ flex: '1 1 240px', cursor: 'pointer' }} onClick=${() => setPeek(p)}><div class="main-t">${p._clName} — ${p.theme}</div>${p.rejectionNote && html`<div class="xs" style=${{ color: 'var(--bad)' }}>Motivo: "${p.rejectionNote}"</div>`}</div>
-        <${Btn} sz="xs" on=${() => setPeek(p)}>Editar legenda</${Btn}><${Btn} sz="xs" v="good" on=${() => patchPost(p._clId, p.id, { rejected: false }).then(() => toast('Resolvido.'))}>✓ Resolvido</${Btn}></div>`)}
-    </div>`}
+    ${parseD(t).getDate() === 15 && !d15 && html`<div class="callout warn mb12"><${Icon} n="cal" s=${18}/><div style=${{ flex: 1 }}><b class="t">Hoje é dia 15: começa a criação de conteúdo</b>${colabName(cs, 'consultora')} tem até o dia 25 para criar todos os roteiros e cronogramas do mês seguinte. Todos os clientes precisam ter os posts planejados.</div><${Btn} sz="sm" on=${ok15}>Ciente</${Btn}></div>`}
 
-    <div class="row wrap mb12" style=${{ gap: 8 }}>
-      ${cs.map(c => { const n = act.filter(p => !isClientStage(p.stage) && p.stage !== 'Aprovação Final (Cliente)' && stageResp(p) === c.id).length + man.filter(m => m.assigned === c.id && !m.done).length;
-        return html`<button key=${c.id} class=${'btn ' + (who === c.id ? 'pri' : '')} onClick=${() => setWho(c.id)}>${c.name} <span class="tag" style=${{ marginLeft: 4 }}>${n}</span></button>`; })}
+    <div class="row wrap mb16" style=${{ gap: 10 }}>
+      <div class="people">${cs.map(c => html`<button key=${c.id} class=${'person' + (who === c.id ? ' on' : '')} onClick=${() => setWho(c.id)}>
+        <${Avatar} name=${c.name} size=${32}/><span style=${{ textAlign: 'left' }}>${c.name}<small>${role[c.id] || 'Equipe'}</small></span><span class="tag" style=${{ marginLeft: 4 }}>${countOf(c)}</span></button>`)}</div>
       <span style=${{ flex: 1 }}/>
       <${Btn} v="pri" icon="plus" on=${() => setEdit({ assigned: who })}>Pendência manual</${Btn}>
     </div>
 
-    ${who === 'leonardo' && (dow === 1 || dow === 3 || dow === 5) && html`<div class="card flush mb12">
-      <div class="lgroup"><span>🔁 Rotina de hoje</span></div>
-      <div class="lrow"><input type="checkbox" checked=${bol} disabled=${bol} onChange=${okBol} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/><div style=${{ flex: 1 }}><div class=${bol ? 'faint' : 'main-t'} style=${{ textDecoration: bol ? 'line-through' : null }}>💳 Gerar boletos para os clientes</div><div class="xs faint">Toda segunda, quarta e sexta · veja a página Cobranças</div></div><${Btn} sz="xs" v="ghost" on=${() => nav.go('cobrancas')}>Abrir Cobranças</${Btn}></div>
-      ${dow === 1 && html`<div class="lrow"><input type="checkbox" checked=${rel} disabled=${rel} onChange=${okRel} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/><div style=${{ flex: 1 }}><div class=${rel ? 'faint' : 'main-t'} style=${{ textDecoration: rel ? 'line-through' : null }}>📊 Alimentar os relatórios das campanhas</div><div class="xs faint">Toda segunda-feira · Painel semanal</div></div><${Btn} sz="xs" v="ghost" on=${() => nav.go('performance')}>Abrir Painel semanal</${Btn}></div>`}
+    <div class="grid g4 mb16">
+      <${Kpi} l="Atrasadas" v=${lateCount} s=${colabName(cs, who)} tone=${lateCount ? 'bad' : ''}/>
+      <${Kpi} l="Para esta semana" v=${weekCount} s="prazo até domingo"/>
+      <${Kpi} l="Aguardando clientes" v=${waitingClient.length} s="aprovações e materiais"/>
+      <${Kpi} l="Ajustes pedidos" v=${rejected.length} s="voltaram para Criação" tone=${rejected.length ? 'warn' : ''}/>
+    </div>
+
+    ${rejected.length > 0 && html`<div class="card flush mb16">
+      <div class="lgroup"><span class="row" style=${{ gap: 8 }}><span class="dot" style=${{ background: 'var(--bad)' }}/>Ajustes pedidos pelos clientes</span><span>${rejected.length}</span></div>
+      ${rejected.map(p => html`<div class="lrow" key=${p.id} style=${{ flexWrap: 'wrap' }}><div style=${{ flex: '1 1 240px', minWidth: 0, cursor: 'pointer' }} onClick=${() => setPeek(p)}><div class="main-t">${p.theme}</div><div class="meta"><b>${p._clName}</b>${p.rejectionNote && html`<i class="sep"/><span style=${{ color: 'var(--bad)' }}>"${p.rejectionNote}"</span>`}</div></div>
+        <${Btn} sz="sm" icon="edit" on=${() => setPeek(p)}>Editar legenda</${Btn}><${Btn} sz="sm" v="good" icon="check" on=${() => patchPost(p._clId, p.id, { rejected: false }).then(() => toast('Resolvido.'))}>Resolvido</${Btn}></div>`)}
     </div>`}
 
-    <div class="row wrap mb12"><${Seg} v=${sub} on=${setSub} opts=${[{ v: 'tudo', l: '⚡ ' + colabName(cs, who) + ' (' + items.length + ')' }, { v: 'manual', l: '✍️ Manuais' }, { v: 'cliente', l: '👤 Aguardando cliente (' + waitingClient.length + ')' }]}/>
-      ${sub === 'tudo' && lateCount > 0 && html`<b class="small" style=${{ color: 'var(--bad)' }}>⚠ ${lateCount} atrasada${lateCount > 1 ? 's' : ''}</b>`}</div>
+    ${who === 'leonardo' && (dow === 1 || dow === 3 || dow === 5) && html`<div class="card flush mb16">
+      <div class="lgroup"><span class="row" style=${{ gap: 8 }}><${Icon} n="repeat" s=${15}/>Rotina de hoje</span></div>
+      <div class="lrow"><input class="ck" type="checkbox" checked=${bol} disabled=${bol} onChange=${okBol}/><div style=${{ flex: 1 }}><div class=${bol ? 'faint' : 'main-t'} style=${{ textDecoration: bol ? 'line-through' : null }}>Gerar boletos para os clientes</div><div class="meta">Toda segunda, quarta e sexta</div></div><${Btn} sz="sm" v="ghost" icon="arrow" on=${() => nav.go('cobrancas')}>Cobranças</${Btn}></div>
+      ${dow === 1 && html`<div class="lrow"><input class="ck" type="checkbox" checked=${rel} disabled=${rel} onChange=${okRel}/><div style=${{ flex: 1 }}><div class=${rel ? 'faint' : 'main-t'} style=${{ textDecoration: rel ? 'line-through' : null }}>Alimentar os relatórios das campanhas</div><div class="meta">Toda segunda-feira</div></div><${Btn} sz="sm" v="ghost" icon="arrow" on=${() => nav.go('performance')}>Painel semanal</${Btn}></div>`}
+    </div>`}
+
+    <div class="row wrap mb12"><${Seg} v=${sub} on=${setSub} opts=${[{ v: 'tudo', l: 'Fila de ' + colabName(cs, who), n: items.length }, { v: 'manual', l: 'Manuais', n: myMan.filter(m => !m.done).length }, { v: 'cliente', l: 'Aguardando cliente', n: waitingClient.length }]}/></div>
 
     ${sub === 'tudo' && ((loading && !posts.length) || loadingMan ? html`<div class="card"><${Empty} t="Carregando pendências…" s=""/></div>`
-      : !items.length ? html`<div class="card"><${Empty} t="Sem pendências 🎉" s="Os posts entram aqui sozinhos quando chegam numa etapa desta pessoa."/></div>`
-      : ORDER.filter(b => items.some(x => bucket(x.date) === b)).map(b => { const inB = items.filter(x => bucket(x.date) === b); const days = [...new Set(inB.map(x => x.date))];
-        return html`<div class="card flush mb12" key=${b}>
-          <div class="lgroup" style=${{ color: b.includes('Atrasado') ? 'var(--bad)' : b.includes('Esta') ? 'var(--warn)' : null }}><span>${b}</span><span>${inB.length}</span></div>
-          ${days.map(d => html`<div key=${d || 'x'}><div class="xs b faint" style=${{ padding: '8px 14px 2px' }}>${dayLbl(d)}</div>${inB.filter(x => x.date === d).map(x => html`<${Item} key=${x.k} x=${x}/>`)}</div>`)}
+      : !items.length ? html`<div class="card"><${Empty} t="Tudo em dia" s="Os posts entram aqui sozinhos quando chegam numa etapa desta pessoa."/></div>`
+      : BUCKETS.filter(b => items.some(x => bucket(x.date) === b.k)).map(b => { const inB = items.filter(x => bucket(x.date) === b.k); const days = [...new Set(inB.map(x => x.date))];
+        return html`<div class="card flush mb12" key=${b.k}>
+          <div class="lgroup"><span class="row" style=${{ gap: 8, color: b.k === 'late' ? 'var(--bad)' : null }}><span class="dot" style=${{ background: b.c }}/>${b.l}</span><span>${inB.length}</span></div>
+          ${days.map(d => html`<div key=${d || 'x'}>${b.k !== 'none' && html`<div class="subday">${dayLbl(d)}</div>`}${inB.filter(x => x.date === d).map(x => html`<${Item} key=${x.k} x=${x}/>`)}</div>`)}
         </div>`; }))}
 
     ${sub === 'manual' && html`<div class="card flush">
       ${myMan.slice().sort((a, b) => (a.done !== b.done ? (a.done ? 1 : -1) : (a.deadline || '9999').localeCompare(b.deadline || '9999'))).map(m => { const over = !m.done && m.deadline && m.deadline < t; const urg = !m.done && m.deadline && !over && m.deadline <= addDays(t, 1);
-        return html`<div class="lrow" key=${m.id} style=${{ opacity: m.done ? 0.55 : 1, borderLeft: '3px solid ' + (m.done ? 'var(--good)' : over ? 'var(--bad)' : urg ? 'var(--warn)' : 'var(--s1)') }}>
-          <input type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)} style=${{ width: 18, height: 18, accentColor: 'var(--good)' }}/>
-          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t" style=${{ textDecoration: m.done ? 'line-through' : null }}>${m.title} ${over && html`<${Tag} t="bad">⚠ atrasada</${Tag}>`}${urg && html`<${Tag} t="warn">🔥 urgente</${Tag}>`}</div>
-            ${m.notes && html`<div class="xs muted" style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</div>`}${m.deadline && html`<div class="xs faint">📅 ${fdate(m.deadline)}</div>`}</div>
+        return html`<div class="lrow" key=${m.id} style=${{ opacity: m.done ? 0.55 : 1 }}>
+          <span class="status-bar" style=${{ background: m.done ? 'var(--good)' : over ? 'var(--bad)' : urg ? 'var(--warn)' : 'var(--border-strong)' }}/>
+          <input class="ck" type="checkbox" checked=${!!m.done} onChange=${() => toggle(m)}/>
+          <div style=${{ flex: 1, minWidth: 0 }}><div class="main-t" style=${{ textDecoration: m.done ? 'line-through' : null }}>${m.title}</div>
+            <div class="meta">${m.deadline ? html`<span>prazo ${fdate(m.deadline)}</span>` : html`<span>sem prazo</span>`}${m.notes && html`<i class="sep"/><span style=${{ whiteSpace: 'pre-wrap' }}>${m.notes}</span>`}</div></div>
+          ${over && html`<${Pill} c="var(--bad)">Atrasada</${Pill}>`}${urg && html`<${Pill} c="var(--warn)">Urgente</${Pill}>`}
           <${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(m)}/><${Btn} sz="xs" v="ghost" cls="danger" icon="trash" on=${() => del(m)}/>
         </div>`; })}
       ${!myMan.length && html`<${Empty} t="Nenhuma pendência manual para esta pessoa" s=""/>`}
@@ -311,7 +336,7 @@ function IntReunioes({ internal }) {
         <div class="lrow" style=${{ cursor: 'pointer', borderBottom: 0 }} onClick=${() => setOpen(open === x.id ? null : x.id)}>
           <${Tag} t=${x.type === 'cliente' ? 'warn' : x.type === 'parceiro' ? '' : 'pri'}>${x.type || 'interna'}</${Tag}>
           <b>${x.date ? fdate(x.date) : '—'}</b>
-          <div style=${{ flex: 1, minWidth: 0 }} class="small"><span class="b">${x.title || (x.clientId && (clients.find(c => c.id === x.clientId) || {}).name) || ''}</span> <span class="muted">${x.participants || ''}</span>${x.transcript && html` <${Tag}>📝 transcrição</${Tag}>`}</div>
+          <div style=${{ flex: 1, minWidth: 0 }} class="small"><span class="b">${x.title || (x.clientId && (clients.find(c => c.id === x.clientId) || {}).name) || ''}</span> <span class="muted">${x.participants || ''}</span>${x.transcript && html` <${Pill} c="var(--s7)">Transcrição</${Pill}>`}</div>
           <${Btn} sz="xs" v="ghost" icon="edit" on=${e => { e.stopPropagation(); setEdit(x); }}/>
           <span class="xs faint">${open === x.id ? '▲' : '▼'}</span>
         </div>
@@ -381,7 +406,7 @@ function AcForm({ x, onClose, onSave, onDel }) {
 /* ---------- membros ---------- */
 function IntMembros({ cs }) {
   const [name, setName] = useState('');
-  const FIXED = ['consultora', 'leonardo', 'designer'];
+  const FIXED = ['consultora', 'leonardo', ''];
   const save = list => saveInternal('colabs', list);
   const ren = (c, n) => n && n !== c.name && save(cs.map(x => (x.id === c.id ? { ...x, name: n } : x)));
   return html`<div>
@@ -398,7 +423,7 @@ function IntMembros({ cs }) {
 }
 
 /* ---------- Instagram (no espaço do cliente) ---------- */
-const INS_FIELDS = [['alcance', 'Alcance total', '👁'], ['impressoes', 'Impressões', '📊'], ['seguidores', 'Seguidores', '👥'], ['segNovos', 'Novos seguidores', '📈'], ['curtidas', 'Curtidas', '❤️'], ['comentarios', 'Comentários', '💬'], ['salvamentos', 'Salvamentos', '🔖'], ['visitas', 'Visitas ao perfil', '🔍'], ['cliquesLink', 'Cliques no link', '🔗']];
+const INS_FIELDS = [['alcance', 'Alcance total', ''], ['impressoes', 'Impressões', ''], ['seguidores', 'Seguidores', ''], ['segNovos', 'Novos seguidores', ''], ['curtidas', 'Curtidas', ''], ['comentarios', 'Comentários', ''], ['salvamentos', 'Salvamentos', ''], ['visitas', 'Visitas ao perfil', ''], ['cliquesLink', 'Cliques no link', '']];
 function WsInstagram({ cl }) {
   const [internal, , loading] = useDoc(V6('internal'), {});
   const all = asArr((internal || {}).insights);
@@ -412,8 +437,8 @@ function WsInstagram({ cl }) {
       return html`<div class="card mb12" key=${x.id}>
         <div class="card-h"><h3>${/^\d{4}-\d{2}$/.test(x.month || '') ? monthLabel(x.month) : x.month}</h3><div class="row"><${Btn} sz="xs" v="ghost" icon="edit" on=${() => setEdit(x)}/></div></div>
         <div class="grid g3">${INS_FIELDS.map(([k2, l, ic]) => { const v = Number(x[k2] || 0); const pv = prev ? Number(prev[k2] || 0) : 0; const d = prev && pv ? (v - pv) / pv : null;
-          return html`<div key=${k2} class="card tight" style=${{ background: 'var(--surface-2)' }}><div class="xs faint">${ic} ${l}</div><div class="b num" style=${{ fontSize: 18 }}>${v.toLocaleString('pt-BR')}</div>${d !== null && html`<div class="xs" style=${{ color: d >= 0 ? 'var(--good)' : 'var(--bad)' }}>${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(0)}% vs mês anterior</div>`}</div>`; })}</div>
-        ${x.melhorPost && html`<div class="callout good mt12"><b class="t">🏆 Melhor publicação</b>${x.melhorPost}${Number(x.melhorPostAlcance) > 0 ? ' · alcance ' + Number(x.melhorPostAlcance).toLocaleString('pt-BR') : ''}</div>`}
+          return html`<div key=${k2} class="card tight" style=${{ background: 'var(--surface-2)' }}><div class="xs faint">${l}</div><div class="b num" style=${{ fontSize: 18 }}>${v.toLocaleString('pt-BR')}</div>${d !== null && html`<div class="xs" style=${{ color: d >= 0 ? 'var(--good)' : 'var(--bad)' }}>${d >= 0 ? '▲' : '▼'} ${Math.abs(d * 100).toFixed(0)}% vs mês anterior</div>`}</div>`; })}</div>
+        ${x.melhorPost && html`<div class="callout good mt12"><b class="t">Melhor publicação</b>${x.melhorPost}${Number(x.melhorPostAlcance) > 0 ? ' · alcance ' + Number(x.melhorPostAlcance).toLocaleString('pt-BR') : ''}</div>`}
         ${x.notes && html`<div class="small muted mt8" style=${{ fontStyle: 'italic' }}>${x.notes}</div>`}
       </div>`; })}
     ${!list.length && html`<div class="card"><${Empty} t="Nenhum mês registrado" s="Registre alcance, seguidores e engajamento do mês."/></div>`}
